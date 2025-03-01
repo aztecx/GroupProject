@@ -11,31 +11,30 @@ class YoloService {
 
   late tfl.Interpreter _interpreter;
   bool _isModelLoaded = false;
+  late List<String> labels = [];
   bool _isLabelsLoaded = false;
   final FlutterTts _flutterTts = FlutterTts();
-  List<String> _labels = []; // ✅ Stores class labels
+  List<String> _labels = []; // ✅ List to store class labels
 
-  /// ✅ **Loads Labels from File**
-  Future<void> _loadLabels() async {
-    try {
-      final labelsString = await rootBundle.loadString(labelsPath);
-      _labels = labelsString.split('\n').map((label) => label.trim()).toList();
-      _labels.removeWhere((label) => label.isEmpty);
+  Future<void> _loadLabels() async{
+    try{
+      final labelsName = await rootBundle.loadString(labelsPath);
+      labels = labelsName.split('\n').map((e)=>e.trim()).toList();
+      labels.removeWhere((label)=>label.isEmpty);
       _isLabelsLoaded = true;
-      print("✅ ${_labels.length} labels loaded");
-
-      if (_labels.length != 80) {
-        print("⚠️ Warning: Expected 80 labels, got ${_labels.length}");
+      print("✅ ${labels.length} labels are loaded");
+      if (labels.length != 80) {
+        print("⚠️ Warning: Expected 80 labels, got ${labels.length}");
       }
-    } catch (e) {
+    }catch(e){
       print("❌ Error loading labels: $e");
-      _labels = [];
+      labels=[];
     }
   }
 
-  /// ✅ **Loads YOLO Model**
   Future<void> loadModel() async {
     try {
+      await _loadLabels();
       print("🔄 Checking if model file exists...");
       await rootBundle.load(modelPath);
       print("✅ Model file exists!");
@@ -44,7 +43,6 @@ class YoloService {
           options: tfl.InterpreterOptions()..threads = 2);
       _isModelLoaded = true;
       print("✅ Model Loaded Successfully!");
-
       // ✅ Load class labels
       await _loadLabels();
     } catch (e) {
@@ -52,7 +50,16 @@ class YoloService {
     }
   }
 
-  /// ✅ **Runs YOLO Model on Image**
+  Future<void> _loadLabels() async {
+    try {
+      String labelsString = await rootBundle.loadString(labelsPath);
+      _labels = labelsString.split('\n').map((label) => label.trim()).toList();
+      print("✅ Labels Loaded Successfully! (${_labels.length} labels)");
+    } catch (e) {
+      print("❌ Error loading labels: $e");
+    }
+  }
+
   Future<List<Map<String, dynamic>>> runModel(img.Image image) async {
     if (!_isModelLoaded) {
       print('❌ Model not loaded');
@@ -67,6 +74,7 @@ class YoloService {
 
     try {
       _interpreter.run(input.reshape([1, 640, 640, 3]), output);
+
     } catch (e) {
       print("❌ Error running model: $e");
       return [];
@@ -79,7 +87,7 @@ class YoloService {
   Float32List preprocessImage(img.Image image, int inputSize) {
     img.Image resized = img.copyResize(image, width: inputSize, height: inputSize);
 
-    Float32List floatData = Float32List(1 * inputSize * inputSize * 3);
+    Float32List floatData = Float32List(1 * inputSize * inputSize * 3); // ✅ Ensure correct input shape
     int pixelIndex = 0;
 
     for (int y = 0; y < inputSize; y++) {
@@ -93,18 +101,17 @@ class YoloService {
       }
     }
 
-    print("📊 Image Preprocessing Done!");
-    return floatData;
+    print("📊 Image Preprocessing Done (Corrected for YOLOv8)!");
+    return floatData; // ✅ Return Float32List directly
   }
 
-  /// ✅ **Returns Label from Class ID**
-  String getLabel(int classID) {
-    if (!_isLabelsLoaded) return "Labels not loaded";
-    if (classID < 0 || classID >= _labels.length) return "Unknown";
-    return _labels[classID];
+  String getLabels(int classID){
+    if(!_isLabelsLoaded) return "Labels are not loaded";
+    if(classID<0 || classID>=labels.length) return "classID out of range";
+    return labels[classID];
   }
 
-  /// ✅ **Processes YOLO Output**
+  /// ✅ **Process YOLOv8 Output Correctly**
   List<Map<String, dynamic>> processOutput(List<List<List<double>>> output, int inputSize) {
     List<Map<String, dynamic>> detections = [];
 
@@ -112,7 +119,10 @@ class YoloService {
       double confidence = output[0][4][i];
 
       // 🔥 Debugging: Print Raw Outputs
+      // print("RAW OUTPUT [i=$i]\n x=${output[0][0][i]}, y=${output[0][1][i]}\n width=${output[0][2][i]}, height=${output[0][3][i]}\n confidence=${confidence}");
       print("RAW OUTPUT [i=$i]: x=${output[0][0][i]}, y=${output[0][1][i]}, width=${output[0][2][i]}, height=${output[0][3][i]}, confidence=$confidence");
+      print(output[0][5][i] * 100000000);
+
 
       if (confidence > 0.2) { // ✅ Lowered for debugging
         int classId = 0;
@@ -125,8 +135,13 @@ class YoloService {
           }
         }
 
+
+        // String label = getLabels(classId);
+
         // ✅ Get label from loaded labels list
-        String label = getLabel(classId);
+        String label = (classId >= 0 && classId < _labels.length)
+            ? _labels[classId]
+            : "Unknown";
 
         print("🎯 Detected: $label with confidence ${(confidence * 100).toInt()}%");
         _flutterTts.speak("Detected $label");
@@ -134,10 +149,10 @@ class YoloService {
         detections.add({
           "label": label,
           "confidence": confidence,
-          "x": output[0][0][i],
-          "y": output[0][1][i],
-          "width": output[0][2][i],
-          "height": output[0][3][i],
+          "x": output[0][0][i] ,
+          "y": output[0][1][i] ,
+          "width": output[0][2][i] ,
+          "height": output[0][3][i] ,
         });
       }
     }
