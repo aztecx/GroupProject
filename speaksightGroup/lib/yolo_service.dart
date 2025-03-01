@@ -11,25 +11,33 @@ class YoloService {
 
   late tfl.Interpreter _interpreter;
   bool _isModelLoaded = false;
-  late List<String> labels = [];
+  List<String> _labels = []; // List to store class labels
   bool _isLabelsLoaded = false;
   final FlutterTts _flutterTts = FlutterTts();
-  List<String> _labels = []; // ✅ List to store class labels
 
   Future<void> _loadLabels() async{
     try{
       final labelsName = await rootBundle.loadString(labelsPath);
-      labels = labelsName.split('\n').map((e)=>e.trim()).toList();
-      labels.removeWhere((label)=>label.isEmpty);
+
+      _labels = labelsName.split('\n').map((e)=>e.trim()).toList();
+
+      _labels.removeWhere((label)=>label.isEmpty);
+
       _isLabelsLoaded = true;
-      print("✅ ${labels.length} labels are loaded");
-      if (labels.length != 80) {
-        print("⚠️ Warning: Expected 80 labels, got ${labels.length}");
-      }
+
+      print("✅ ${_labels.length} labels are loaded");
+
+      if (_labels.length != 80) {
+
+        print("⚠️ Warning: Expected 80 labels, got ${_labels.length}");
+
+     }
     }catch(e){
       print("❌ Error loading labels: $e");
-      labels=[];
-    }
+
+      _labels=[];
+
+   }
   }
 
   Future<void> loadModel() async {
@@ -45,18 +53,9 @@ class YoloService {
       print("✅ Model Loaded Successfully!");
       // ✅ Load class labels
       await _loadLabels();
+      print("🏷️ Labels: ${_labels.length} loaded");
     } catch (e) {
       print("❌ Error loading model: $e");
-    }
-  }
-
-  Future<void> _loadLabels() async {
-    try {
-      String labelsString = await rootBundle.loadString(labelsPath);
-      _labels = labelsString.split('\n').map((label) => label.trim()).toList();
-      print("✅ Labels Loaded Successfully! (${_labels.length} labels)");
-    } catch (e) {
-      print("❌ Error loading labels: $e");
     }
   }
 
@@ -107,8 +106,8 @@ class YoloService {
 
   String getLabels(int classID){
     if(!_isLabelsLoaded) return "Labels are not loaded";
-    if(classID<0 || classID>=labels.length) return "classID out of range";
-    return labels[classID];
+    if(classID<0 || classID>=_labels.length) return "classID out of range";
+    return _labels[classID];
   }
 
   /// ✅ **Process YOLOv8 Output Correctly**
@@ -134,9 +133,6 @@ class YoloService {
             classId = j - 5;
           }
         }
-
-
-        // String label = getLabels(classId);
 
         // ✅ Get label from loaded labels list
         String label = (classId >= 0 && classId < _labels.length)
