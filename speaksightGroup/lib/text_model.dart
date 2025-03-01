@@ -1,81 +1,75 @@
 import 'package:flutter/material.dart';
-import 'package:vibration/vibration.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-
-
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class TextModelPage extends StatefulWidget {
-
-const TextModelPage({super.key});
+  const TextModelPage({super.key});
 
   @override
   State<TextModelPage> createState() => _TextModelPageState();
 }
 
 class _TextModelPageState extends State<TextModelPage> {
-
   late TextRecognizer textRecognizer;
-  late ImagePicker imagePicker;
-  
-  String? pickedImagePath;
+  String? selectedImagePath;
   String recognizedText = "";
-
   bool isRecognizing = false;
+  final FlutterTts _flutterTts = FlutterTts();
 
   @override
   void initState() {
     super.initState();
-
     textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    imagePicker = ImagePicker();
     print("TextModelPage initialized");
   }
 
-  void _pickImageAndProcess({required ImageSource source}) async {
-    final pickedImage = await imagePicker.pickImage(source: source);
+  Future<void> _selectImageAndProcess(String assetPath) async {
+  setState(() {
+    selectedImagePath = assetPath;
+    isRecognizing = true;
+  });
 
-    if (pickedImage == null) {
-      return;
-    }
+  try {
+    // Copy asset image to a temporary file
+    final tempFile = await _copyAssetToFile(assetPath);
+
+    final inputImage = InputImage.fromFilePath(tempFile.path);
+    final RecognizedText recognisedText = await textRecognizer.processImage(inputImage);
 
     setState(() {
-      pickedImagePath = pickedImage.path;
-      isRecognizing = true;
+      recognizedText = recognisedText.text;
+      print(recognizedText);
+      _flutterTts.speak(recognizedText);
     });
+  } catch (e) {
+    if (!mounted) return;
 
-    try {
-      final inputImage = InputImage.fromFilePath(pickedImage.path);
-      final RecognizedText recognisedText =
-          await textRecognizer.processImage(inputImage);
-
-      recognizedText = "";
-
-      for (TextBlock block in recognisedText.blocks) {
-        for (TextLine line in block.lines) {
-          recognizedText += "${line.text}\n";
-        }
-      }
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error recognizing text: $e'),
-        ),
-      );
-    } finally {
-      setState(() {
-        isRecognizing = false;
-      });
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error recognizing text: $e'),
+      ),
+    );
+  } finally {
+    setState(() {
+      isRecognizing = false;
+    });
   }
+}
 
-  void _chooseImageSourceModal() {
+// Function to copy an asset image to a temporary file
+Future<File> _copyAssetToFile(String assetPath) async {
+  final byteData = await rootBundle.load(assetPath);
+  final tempDir = await getTemporaryDirectory();  // Ensure async call
+  final tempFile = File('${tempDir.path}/temp_image.png');
+
+  await tempFile.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
+  return tempFile;
+}
+
+  void _showImageSelectionModal() {
     showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -85,21 +79,22 @@ class _TextModelPageState extends State<TextModelPage> {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Choose from gallery'),
+                leading: const Icon(Icons.image),
+                title: const Text('Select Image 1'),
                 onTap: () {
                   Navigator.pop(context);
-                  _pickImageAndProcess(source: ImageSource.gallery);
+                  _selectImageAndProcess('assets/images/text.png');
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text('Take a picture'),
+                leading: const Icon(Icons.image),
+                title: const Text('Select Image 2'),
                 onTap: () {
                   Navigator.pop(context);
-                  _pickImageAndProcess(source: ImageSource.camera);
+                  _selectImageAndProcess('assets/images/text.png');
                 },
               ),
+              // Add more ListTile widgets for additional images
             ],
           ),
         );
@@ -133,26 +128,24 @@ class _TextModelPageState extends State<TextModelPage> {
           children: <Widget>[
             Padding(
               padding: const EdgeInsets.all(16.0),
-              // display image here
-              child: pickedImagePath == null
+              child: selectedImagePath == null
                   ? const Icon(
                       Icons.image,
                       size: 100,
                       color: Colors.grey,
                     )
-                  : Image.file(
-                      File(pickedImagePath!),
+                  : Image.asset(
+                      selectedImagePath!,
                       width: 100,
                       height: 100,
                     ),
-
             ),
             ElevatedButton(
-              onPressed: isRecognizing ? null : _chooseImageSourceModal,
+              onPressed: isRecognizing ? null : _showImageSelectionModal,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Pick an image'),
+                  const Text('Select an image'),
                   if (isRecognizing) ...[
                     const SizedBox(width: 20),
                     const SizedBox(
@@ -192,31 +185,29 @@ class _TextModelPageState extends State<TextModelPage> {
                 ],
               ),
             ),
-            if (!isRecognizing) ...[
-              Expanded(
-                child: Scrollbar(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: SelectableText(
-                            recognizedText.isEmpty
-                                ? "No text recognized"
-                                : recognizedText,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            // if (!isRecognizing) ...[
+            //   Expanded(
+            //     child: Scrollbar(
+            //       child: SingleChildScrollView(
+            //         padding: const EdgeInsets.all(16),
+            //         child: Row(
+            //           children: [
+            //             Flexible(
+            //               child: SelectableText(
+            //                 recognizedText.isEmpty
+            //                     ? "No text recognized"
+            //                     : recognizedText,
+            //               ),
+            //             ),
+            //           ],
+            //         ),
+            //       ),
+            //     ),
+            //   ),
+            // ],
           ],
         ),
       ),
     );
   }
 }
-
-  

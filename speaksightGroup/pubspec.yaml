@@ -39,6 +39,7 @@ dependencies:
   permission_handler: ^11.0.0
   google_mlkit_text_recognition: ^0.11.0
   image_picker: ^1.0.7
+  path_provider: ^2.1.5
 
 
 
@@ -73,6 +74,7 @@ flutter:
   assets:
     - assets/labels/coco_labels.txt
     - assets/models/yolov8n_float16.tflite
+    - assets/images/text.png
 
 
   #dependencies for mobile icon:
