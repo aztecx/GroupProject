@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
 import 'package:image/image.dart' as img;
 import 'package:flutter_tts/flutter_tts.dart';
+
+
 
 class YoloService {
   late tfl.Interpreter _interpreter;
@@ -15,6 +18,31 @@ class YoloService {
   // Set this flag to true if your model outputs normalized coordinates (0-1).
   // Set to false if it outputs absolute pixel values.
   final bool modelOutputsNormalized = true;
+
+
+  img.Image _resizedImage(img.Image image, int targetSize) {
+    final originalWidth = image.width;
+    final originalHeight = image.height;
+
+    // 计算缩放比例
+    final scale = min(targetSize / originalWidth, targetSize / originalHeight);
+    final newWidth = (originalWidth * scale).toInt();
+    final newHeight = (originalHeight * scale).toInt();
+
+    // 缩放图像
+    final resized = img.copyResize(image, width: newWidth, height: newHeight);
+
+    // 创建填充画布
+    final padded = img.Image(width:targetSize, height:targetSize);
+    img.fill(padded, color: img.ColorRgb8(128, 128, 128)); // 中性灰填充
+
+    // 居中粘贴
+    final dx = (targetSize - newWidth) ~/ 2;
+    final dy = (targetSize - newHeight) ~/ 2;
+    img.compositeImage(padded, resized, dstX: dx, dstY: dy);
+
+    return padded;
+  }
 
   // Loads the model and labels from assets.
   Future<void> loadModel() async {
@@ -33,13 +61,15 @@ class YoloService {
     }
   }
 
+
   // Runs inference on the given image and returns a list of detections.
   // Each detection is a map with normalized bounding box and detection info.
   Future<List<Map<String, dynamic>>> runModel(img.Image image) async {
     List<Map<String, dynamic>> detections = [];
     try {
       // Resize the image to the expected input size.
-      img.Image resizedImage = img.copyResize(image, width: _inputSize, height: _inputSize);
+      // img.Image resizedImage = img.copyResize(image, width: _inputSize, height: _inputSize);
+      final resizedImage = _resizedImage(image, _inputSize);
       print("📊 Image Preprocessing Done!");
 
       // Prepare input tensor of shape [1, _inputSize, _inputSize, 3] with normalized RGB values.
