@@ -1,6 +1,7 @@
 // lib/homepage.dart
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:speaksightgroup/text_service.dart';
 import 'package:vibration/vibration.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
@@ -16,28 +17,42 @@ class Homepage extends StatefulWidget {
 }
 
 class _HomepageState extends State<Homepage> {
+  // Initialize the camera controller
   CameraController? _cameraController;
   List<CameraDescription>? _cameras;
-  final YoloService _yoloService = YoloService();
   bool _isCameraInitialized = false;
-  List<Map<String, dynamic>> _detections = [];
-  bool _isProcessing=false; // ⚠️防止并发处理
   StreamSubscription<CameraImage>? _imageStreamSubscription;
 
+  // Initialize the YOLO service and Text service
+  final YoloService _yoloService = YoloService();
+  final TextService _textService = TextService();
+  
+  List<Map<String, dynamic>> _detectedObjects = [];
+  String _recognizedText = '';
+
+  bool _isProcessing=false; // ⚠️防止并发处理
+  
+  // List of modes
   final List<String> modes = [
     'Object Detection',
-    'Object Search',
+    // 'Object Search',
     'Text Recognition'
   ];
   int currentModeIndex = 0;
+  
 
+  // Check the camera permission and initialize the camera
   @override
   void initState() {
     super.initState();
     _checkCameraPermission();
+
+    // Load the YOLO and Text models
     _yoloService.loadModel();
+    _textService.loadModel();
   }
 
+  // Check the camera permission
   Future<void> _checkCameraPermission() async {
     var status = await Permission.camera.request();
     if (status.isGranted) {
@@ -47,9 +62,12 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
+  // Initialize the camera
   Future<void> _initCamera() async {
     _cameras = await availableCameras();
+    // Initialize the camera controller
     if (_cameras!.isNotEmpty) {
+      // use the first camera with medium resolution
       _cameraController = CameraController(_cameras![0], ResolutionPreset.medium);
       await _cameraController!.initialize();
 
@@ -57,16 +75,19 @@ class _HomepageState extends State<Homepage> {
         _isCameraInitialized = true;
       });
 
+      // Start the detection loop
       _startDetectionLoop();
     }
   }
 
   void _startDetectionLoop() async {
+    // check if the camera is initialized
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
     }
 
     // ⚠️changed: takePicture --> startImageStream
+    // Start the image stream
     await _cameraController!.startImageStream((CameraImage image) async {
       if (_isProcessing) return;
       _isProcessing = true;
@@ -75,9 +96,15 @@ class _HomepageState extends State<Homepage> {
         // Turn <CameraImage> into <img.Image>
         final img.Image? convertedImage = await _convertCameraImage(image);
 
+        // Run the YOLO model
         if (convertedImage != null) {
-          final results = await _yoloService.runModel(convertedImage);
-          setState(() => _detections = results);
+          if (modes[currentModeIndex] == 'Object Detection') {
+            final results = await _yoloService.runModel(convertedImage);
+            setState(() => _detectedObjects = results);
+          } else if (modes[currentModeIndex] == 'Text Recognition') {
+            final results = await _textService.runModel(convertedImage);
+            setState(() => _recognizedText = results);
+          }
         }
       } catch (e) {
         print("❌ Image processing error: $e");
@@ -175,7 +202,7 @@ class _HomepageState extends State<Homepage> {
           ),
           Positioned.fill(
             child: CustomPaint(
-              painter: BoundingBoxPainter(_detections),
+              painter: BoundingBoxPainter(_detectedObjects),
             ),
           ),
           Positioned(

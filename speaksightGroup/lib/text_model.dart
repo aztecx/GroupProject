@@ -36,6 +36,7 @@ class _TextModelPageState extends State<TextModelPage> {
     // Copy asset image to a temporary file
     final tempFile = await _copyAssetToFile(assetPath);
 
+    // Modify here to change the image input to real time 
     final inputImage = InputImage.fromFilePath(tempFile.path);
     final RecognizedText recognisedText = await textRecognizer.processImage(inputImage);
 
@@ -102,20 +103,20 @@ Future<File> _copyAssetToFile(String assetPath) async {
     );
   }
 
-  void _copyTextToClipboard() async {
-    if (recognizedText.isNotEmpty) {
-      await Clipboard.setData(ClipboardData(text: recognizedText));
-      if (!mounted) {
-        return;
-      }
+  // void _copyTextToClipboard() async {
+  //   if (recognizedText.isNotEmpty) {
+  //     await Clipboard.setData(ClipboardData(text: recognizedText));
+  //     if (!mounted) {
+  //       return;
+  //     }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Text copied to clipboard'),
-        ),
-      );
-    }
-  }
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text('Text copied to clipboard'),
+  //       ),
+  //     );
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -174,13 +175,6 @@ Future<File> _copyAssetToFile(String assetPath) async {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.copy,
-                      size: 16,
-                    ),
-                    onPressed: _copyTextToClipboard,
                   ),
                 ],
               ),

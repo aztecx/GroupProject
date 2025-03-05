@@ -129,15 +129,6 @@ class YoloService {
         // Debug: print raw bounding box values.
         print("🔍 Raw bounding box: cx=$cx, cy=$cy, width=$boxWidth, height=$boxHeight");
 
-        // If your model outputs absolute pixel values, normalize by _inputSize.
-        double normalizedCx = modelOutputsNormalized ? cx : cx / _inputSize;
-        double normalizedCy = modelOutputsNormalized ? cy : cy / _inputSize;
-        double normalizedWidth = modelOutputsNormalized ? boxWidth : boxWidth / _inputSize;
-        double normalizedHeight = modelOutputsNormalized ? boxHeight : boxHeight / _inputSize;
-
-        // Debug: print the normalized bounding box values.
-        print("🔍 Normalized bounding box: cx=$normalizedCx, cy=$normalizedCy, width=$normalizedWidth, height=$normalizedHeight");
-
         // Next 80 values: class scores.
         List<double> classScores = detection.sublist(4);
         // Find the maximum score and corresponding index.
@@ -155,10 +146,10 @@ class YoloService {
         if (maxScore >= _confidenceThreshold) {
           String label = (classIndex < _labels.length) ? _labels[classIndex] : "Unknown";
           detections.add({
-            'x': normalizedCx,
-            'y': normalizedCy,
-            'width': normalizedWidth,
-            'height': normalizedHeight,
+            'x': cx,
+            'y': cy,
+            'width': boxWidth,
+            'height': boxHeight,
             'label': label,
             'confidence': maxScore,
           });
