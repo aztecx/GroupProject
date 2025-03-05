@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'bounding_box_painter.dart';
 import 'yolo_service.dart';
 import 'dart:async';
+import 'dart:typed_data';
 
 
 class Homepage extends StatefulWidget {
@@ -20,6 +21,8 @@ class _HomepageState extends State<Homepage> {
   final YoloService _yoloService = YoloService();
   bool _isCameraInitialized = false;
   List<Map<String, dynamic>> _detections = [];
+  bool _isProcessing=false; // ⚠️防止并发处理
+  StreamSubscription<CameraImage>? _imageStreamSubscription;
 
   final List<String> modes = [
     'Object Detection',
@@ -58,21 +61,87 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
-  void _startDetectionLoop() {
-    Timer.periodic(Duration(seconds: 2), (_) async {
-      if (!_cameraController!.value.isInitialized) return;
+  void _startDetectionLoop() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
 
-      final imageFile = await _cameraController!.takePicture();
-      final bytes = await imageFile.readAsBytes();
-      img.Image? capturedImage = img.decodeImage(bytes);
+    // ⚠️changed: takePicture --> startImageStream
+    await _cameraController!.startImageStream((CameraImage image) async {
+      if (_isProcessing) return;
+      _isProcessing = true;
 
-      if (capturedImage != null) {
-        List<Map<String, dynamic>> results = await _yoloService.runModel(capturedImage);
-        setState(() {
-          _detections = results;
-        });
+      try {
+        // Turn <CameraImage> into <img.Image>
+        final img.Image? convertedImage = await _convertCameraImage(image);
+
+        if (convertedImage != null) {
+          final results = await _yoloService.runModel(convertedImage);
+          setState(() => _detections = results);
+        }
+      } catch (e) {
+        print("❌ Image processing error: $e");
+      } finally {
+        _isProcessing = false;
       }
     });
+  }
+
+  Future<img.Image?> _convertCameraImage(CameraImage image) async {
+    try {
+      final int width = image.width;
+      final int height = image.height;
+
+      if (image.format.group == ImageFormatGroup.yuv420) {
+        return _convertYUV420ToImage(image);
+      } else if (image.format.group == ImageFormatGroup.bgra8888) {
+        return _convertBGRA8888ToImage(image);
+      }
+      return null;
+    } catch (e) {
+      print("❌ Image conversion error: $e");
+      return null;
+    }
+  }
+
+  // ⚠️For Camera on Android OS
+  img.Image _convertYUV420ToImage(CameraImage image) {
+    final int width = image.width;
+    final int height = image.height;
+    final int uvRowStride = image.planes[1].bytesPerRow;
+    final int uvPixelStride = image.planes[1].bytesPerPixel!;
+
+    final img.Image converted = img.Image(width: width, height: height);
+
+    // YUV to RGB
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        final int uvIndex = uvPixelStride * (x / 2).floor() + uvRowStride * (y / 2).floor();
+        final int yIndex = y * width + x;
+
+        final yValue = image.planes[0].bytes[yIndex];
+        final uValue = image.planes[1].bytes[uvIndex];
+        final vValue = image.planes[2].bytes[uvIndex];
+
+        final r = (yValue + 1.402 * (vValue - 128)).clamp(0, 255);
+        final g = (yValue - 0.344136 * (uValue - 128) - 0.714136 * (vValue - 128)).clamp(0, 255);
+        final b = (yValue + 1.772 * (uValue - 128)).clamp(0, 255);
+
+        converted.setPixelRgba(x, y, r.toInt(), g.toInt(), b.toInt(),255);
+      }
+    }
+    return converted;
+  }
+
+  // For Camera on iOS
+  img.Image _convertBGRA8888ToImage(CameraImage image) {
+    final bytes = Uint8List.fromList(image.planes[0].bytes);
+    return img.Image.fromBytes(
+      width: image.width,
+      height: image.height,
+      bytes: bytes.buffer,
+      order: img.ChannelOrder.bgra,
+    );
   }
 
   void _switchMode() {
@@ -88,6 +157,8 @@ class _HomepageState extends State<Homepage> {
 
   @override
   void dispose() {
+    _imageStreamSubscription?.cancel();
+    _cameraController?.stopImageStream();
     _cameraController?.dispose();
     super.dispose();
   }

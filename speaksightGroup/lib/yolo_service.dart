@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
 import 'package:image/image.dart' as img;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'dart:typed_data';
+
 
 
 
@@ -19,29 +21,46 @@ class YoloService {
   // Set to false if it outputs absolute pixel values.
   final bool modelOutputsNormalized = true;
 
-
-  img.Image _resizedImage(img.Image image, int targetSize) {
+  // 记录偏移量
+  late int dx;
+  late int dy;
+  // ⚠️原本的处理方法是拉伸变形，我改成按比例缩放
+  img.Image _resizedImage(img.Image image) {
     final originalWidth = image.width;
     final originalHeight = image.height;
 
     // 计算缩放比例
-    final scale = min(targetSize / originalWidth, targetSize / originalHeight);
+    final scale = min(_inputSize / originalWidth, _inputSize / originalHeight);
     final newWidth = (originalWidth * scale).toInt();
     final newHeight = (originalHeight * scale).toInt();
 
-    // 缩放图像
+    // 记录偏移量
+    dx = (_inputSize - newWidth) ~/ 2;
+    dy = (_inputSize - newHeight) ~/ 2;
+
     final resized = img.copyResize(image, width: newWidth, height: newHeight);
-
     // 创建填充画布
-    final padded = img.Image(width:targetSize, height:targetSize);
-    img.fill(padded, color: img.ColorRgb8(128, 128, 128)); // 中性灰填充
-
+    final padded = img.Image(width: _inputSize, height: _inputSize);
+    img.fill(padded, color: img.ColorRgb8(128, 128, 128));
     // 居中粘贴
-    final dx = (targetSize - newWidth) ~/ 2;
-    final dy = (targetSize - newHeight) ~/ 2;
     img.compositeImage(padded, resized, dstX: dx, dstY: dy);
-
     return padded;
+  }
+
+  // ⚠️ rbg normalization
+  Float32List _prepareInput(img.Image image) {
+    final input = Float32List(_inputSize * _inputSize * 3);
+    int pixelIndex = 0;
+
+    for (int y = 0; y < _inputSize; y++) {
+      for (int x = 0; x < _inputSize; x++) {
+        final pixel = image.getPixel(x, y);
+        input[pixelIndex++] = pixel.r / 255.0;
+        input[pixelIndex++] = pixel.g / 255.0;
+        input[pixelIndex++] = pixel.b / 255.0;
+      }
+    }
+    return input;
   }
 
   // Loads the model and labels from assets.
@@ -56,54 +75,35 @@ class YoloService {
       _labels = labelsData.split('\n').where((line) => line.trim().isNotEmpty).toList();
       print("✅ Labels Loaded: ${_labels.length} labels");
       print("✅ Model Loaded Successfully!");
+
+      var inputTensors = _interpreter.getInputTensors();
+      print("Input tensor type: ${inputTensors[0].type}");
+      print("Input tensor shape: ${inputTensors[0].shape}");
     } catch (e) {
       print("❌ Error loading model: $e");
     }
   }
 
-
-  // Runs inference on the given image and returns a list of detections.
-  // Each detection is a map with normalized bounding box and detection info.
   Future<List<Map<String, dynamic>>> runModel(img.Image image) async {
     List<Map<String, dynamic>> detections = [];
     try {
-      // Resize the image to the expected input size.
-      // img.Image resizedImage = img.copyResize(image, width: _inputSize, height: _inputSize);
-      final resizedImage = _resizedImage(image, _inputSize);
+      // ⚠️修改：改用保持比例的缩放（具体实现在上面）
+      final processedImage = _resizedImage(image);
+      final input = _prepareInput(processedImage);
       print("📊 Image Preprocessing Done!");
 
-      // Prepare input tensor of shape [1, _inputSize, _inputSize, 3] with normalized RGB values.
-      var input = List.generate(1, (_) =>
-          List.generate(_inputSize, (i) =>
-              List.generate(_inputSize, (j) =>
-                  List.generate(3, (c) {
-                    var pixelObj = resizedImage.getPixel(j, i);
-                    int r = pixelObj.r.toInt();
-                    int g = pixelObj.g.toInt();
-                    int b = pixelObj.b.toInt();
-                    if (c == 0) return r / 255.0;
-                    if (c == 1) return g / 255.0;
-                    return b / 255.0;
-                  })
-              )
-          )
+      // ⚠️内存溢出问题，很可能是由output这里引发的
+      final output = List<List<List<double>>>.generate(
+        1,
+            (_) => List<List<double>>.generate(84, (_) => List<double>.filled(8400, 0.0, growable: false),
+            growable: false),
       );
 
-      // Prepare output tensor.
-      // The model returns a tensor of shape [1, 84, 8400].
-      var output = List.generate(1, (_) =>
-          List.generate(84, (_) =>
-              List.filled(8400, 0.0)
-          )
-      );
-
-      // Run the model.
-      _interpreter.run(input, output);
-
+      _interpreter.run(input.buffer, output);
       // Debug: print the output shape.
       print("📊 Model output shape: [${output.length}, ${output[0].length}, ${output[0][0].length}]");
 
-      // Transpose output from [1,84,8400] to [1,8400,84]
+// Transpose output from [1,84,8400] to [1,8400,84]
       List<List<double>> transposedOutput = List.generate(8400, (_) => List.filled(84, 0.0));
       for (int i = 0; i < 84; i++) {
         for (int j = 0; j < 8400; j++) {
@@ -161,16 +161,58 @@ class YoloService {
         }
       }
 
-      // If there are detections, speak out the unique labels.
+      print("<detections> Before NMS: $detections");
+      detections = _applyNMS(detections);
+      print("<detections> After NMS: $detections");
+
       if (detections.isNotEmpty) {
-        String speech = detections.map((det) => det['label']).toSet().join(', ');
+        String speech = detections.map((d) => d['label']).join(', ');
         await _flutterTts.speak("Detected: $speech");
       }
     } catch (e) {
-      print("❌ Error running model: $e");
+      print("❌ Error running model: $e \n");
     }
     return detections;
   }
+
+  List<Map<String, dynamic>> _applyNMS(List<Map<String, dynamic>> detections) {
+    detections.sort((a, b) => b['confidence'].compareTo(a['confidence']));
+
+    final List<Map<String, dynamic>> filtered = [];
+    while (detections.isNotEmpty) {
+      final current = detections.removeAt(0);
+      filtered.add(current);
+
+      double threshold = 0.5; // make this extremely large to deactivate IoU
+      detections.removeWhere((det) => _calculateIoU(current, det) > threshold);
+    }
+    return filtered;
+  }
+  // ⚠️ fix the boundingbox overlap problem.
+  double _calculateIoU(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final aLeft = a['x'] - a['width'] / 2;
+    final aTop = a['y'] - a['height'] / 2;
+    final aRight = aLeft + a['width'];
+    final aBottom = aTop + a['height'];
+
+    final bLeft = b['x'] - b['width'] / 2;
+    final bTop = b['y'] - b['height'] / 2;
+    final bRight = bLeft + b['width'];
+    final bBottom = bTop + b['height'];
+
+    final interLeft = max(aLeft, bLeft);
+    final interTop = max(aTop, bTop);
+    final interRight = min(aRight, bRight);
+    final interBottom = min(aBottom, bBottom);
+
+    if (interRight <= interLeft || interBottom <= interTop) return 0.0;
+
+    final intersection = (interRight - interLeft) * (interBottom - interTop);
+    final union = a['width']*a['height'] + b['width']*b['height'] - intersection;
+
+    return intersection / union;
+  }
+
 }
 
 
