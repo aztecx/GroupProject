@@ -11,6 +11,7 @@ import 'dart:typed_data';
 
 class YoloService {
   late tfl.Interpreter _interpreter;
+
   List<String> _labels = [];
   final FlutterTts _flutterTts = FlutterTts();
   // Input image size used for the model.
@@ -45,6 +46,7 @@ class YoloService {
     // 居中粘贴
     img.compositeImage(padded, resized, dstX: dx, dstY: dy);
     return padded;
+
   }
 
   // ⚠️ rbg normalization
@@ -76,9 +78,11 @@ class YoloService {
       print("✅ Labels Loaded: ${_labels.length} labels");
       print("✅ Model Loaded Successfully!");
 
+
       var inputTensors = _interpreter.getInputTensors();
       print("Input tensor type: ${inputTensors[0].type}");
       print("Input tensor shape: ${inputTensors[0].shape}");
+
     } catch (e) {
       print("❌ Error loading model: $e");
     }
@@ -145,6 +149,7 @@ class YoloService {
             classIndex = i;
           }
         }
+
 
         // Use the detection if the confidence is above the threshold.
         if (maxScore >= _confidenceThreshold) {
