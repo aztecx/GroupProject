@@ -36,15 +36,28 @@ class TextService {
   Future<String> runModel(img.Image image) async {
     try {
       // Copy asset image to a temporary file
-      final tempFile = await _copyAssetToFile(assetPath);
+      // final tempFile = await _copyAssetToFile(assetPath);
+      // final inputImage = InputImage.fromFilePath(tempFile.path);
 
-      // Modify here to change the image input to real time 
-      final inputImage = InputImage.fromFilePath(tempFile.path);
+      // Encode your img.Image to JPEG (or PNG)
+      final Uint8List encodedBytes = Uint8List.fromList(img.encodeJpg(image));
+
+      // Get a temporary directory
+      final tempDir = await getTemporaryDirectory();
+      final tempFilePath = '${tempDir.path}/temp.jpg';
+
+      // Write the encoded bytes to a temporary file
+      final tempFile = File(tempFilePath);
+      await tempFile.writeAsBytes(encodedBytes, flush: true);
+
+      // Create an InputImage from the file path
+      final inputImage = InputImage.fromFilePath(tempFilePath);
+
       final RecognizedText textResult = await textRecognizer.processImage(inputImage); 
 
-        recognisedText = textResult.text;
-        print(recognisedText);
-        _flutterTts.speak(recognisedText);
+      recognisedText = textResult.text;
+      print(recognisedText);
+      _flutterTts.speak(recognisedText);
     } catch (e) {
       // if (!mounted) return;
       // ScaffoldMessenger.of(context).showSnackBar(
