@@ -39,7 +39,7 @@ class _HomepageState extends State<Homepage> {
     'Text Recognition'
   ];
   int currentModeIndex = 0;
-  
+
 
   // Check the camera permission and initialize the camera
   @override
@@ -173,13 +173,14 @@ class _HomepageState extends State<Homepage> {
 
   void _switchMode() {
     Vibration.vibrate(duration: 100);
+    // Switch mode
     setState(() {
       currentModeIndex = (currentModeIndex + 1) % modes.length;
     });
 
-    if (modes[currentModeIndex] == 'Text Recognition') {
-      Navigator.pushNamed(context, '/textModel');
-    }
+    // if (modes[currentModeIndex] == 'Text Recognition') {
+    //   Navigator.pushNamed(context, '/textModel');
+    // }
   }
 
   @override
@@ -195,43 +196,89 @@ class _HomepageState extends State<Homepage> {
     return Scaffold(
       appBar: AppBar(title: Text('Speak Sight')),
       body: _isCameraInitialized
-          ? Stack(
-        children: [
-          Positioned.fill(
-            child: CameraPreview(_cameraController!),
-          ),
-          Positioned.fill(
-            child: CustomPaint(
-              painter: BoundingBoxPainter(_detectedObjects),
-            ),
-          ),
-          Positioned(
-            bottom: 30,
-            left: 0,
-            right: 0,
-            child: Column(
-              children: [
-                Text(
-                  'Current Mode: ${modes[currentModeIndex]}',
-                  style: TextStyle(
-                    fontSize: 22,
-                    color: Colors.white,
-                    shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+          ? GestureDetector(
+              onDoubleTap: _switchMode,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: CameraPreview(_cameraController!),
                   ),
-                ),
-                GestureDetector(
-                  onTap: () => Vibration.vibrate(duration: 50),
-                  onDoubleTap: _switchMode,
-                  child: Icon(Icons.touch_app, size: 50, color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-        ],
-      )
-          : Center(
-        child: CircularProgressIndicator(),
-      ),
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: BoundingBoxPainter(_detectedObjects),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 30,
+                    left: 0,
+                    right: 0,
+                    child: Column(
+                      children: [
+                        Text(
+                          'Current Mode: ${modes[currentModeIndex]}',
+                          style: TextStyle(
+                            fontSize: 22,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(color: Colors.black, blurRadius: 4)
+                            ],
+                          ),
+                        ),
+                        // You can still keep an icon if you want a visual cue.
+                        Icon(Icons.touch_app, size: 50, color: Colors.white),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : Center(child: CircularProgressIndicator()),
     );
-  }
+}
+
+
+  // @override
+  // Widget build(BuildContext context) {
+  //   return Scaffold(
+  //     appBar: AppBar(title: Text('Speak Sight')),
+  //     body: _isCameraInitialized
+  //         ? Stack(
+  //           children: [
+  //             Positioned.fill(
+  //               child: CameraPreview(_cameraController!),
+  //               ),
+  //               Positioned.fill(
+  //                 child: CustomPaint(
+  //                   painter: BoundingBoxPainter(_detectedObjects),
+  //                   ),
+  //                 ),
+  //               Positioned(
+  //                 bottom: 30,
+  //                 left: 0,
+  //                 right: 0,
+  //                 child: Column(
+  //                   children: [
+  //                     Text(
+  //                 'Current Mode: ${modes[currentModeIndex]}',
+  //                 style: TextStyle(
+  //                   fontSize: 22,
+  //                   color: Colors.white,
+  //                   shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+  //                 ),
+  //               ),
+  //               GestureDetector(
+  //                 onTap: () => Vibration.vibrate(duration: 50),
+  //                 onDoubleTap: _switchMode,
+  //                 child: Icon(Icons.touch_app, size: 50, color: Colors.white),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       ],
+  //         )
+  //         : Center(
+  //       child: CircularProgressIndicator(),
+  //     ),
+  //   );
+  // }
 }
