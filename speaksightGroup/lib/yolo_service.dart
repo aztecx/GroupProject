@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
 import 'package:image/image.dart' as img;
-import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:typed_data';
 
 
@@ -20,7 +19,6 @@ class YoloService {
   late tfl.Interpreter _interpreter;
 
   List<String> _labels = [];
-  final FlutterTts _flutterTts = FlutterTts();
   // Input image size used for the model.
   final int _inputSize = 320;
   // Confidence threshold for detection.
@@ -29,29 +27,26 @@ class YoloService {
   // Set to false if it outputs absolute pixel values.
   final bool modelOutputsNormalized = true;
 
-  // 记录偏移量
+
   late int dx;
   late int dy;
-  // ⚠️原本的处理方法是拉伸变形，我改成按比例缩放
+
   img.Image _resizedImage(img.Image image) {
     final originalWidth = image.width;
     final originalHeight = image.height;
 
-    // 计算缩放比例
+    // calculating ratio
     final scale = min(_inputSize / originalWidth, _inputSize / originalHeight);
     final newWidth = (originalWidth * scale).toInt();
     final newHeight = (originalHeight * scale).toInt();
 
-    // 记录偏移量
     dx = (_inputSize - newWidth) ~/ 2;
     dy = (_inputSize - newHeight) ~/ 2;
 
     final resized = img.copyResize(image, width: newWidth, height: newHeight);
-    // 创建填充画布
-    final padded = img.Image(width: _inputSize, height: _inputSize);
-    img.fill(padded, color: img.ColorRgb8(128, 128, 128));
-    // 居中粘贴
-    img.compositeImage(padded, resized, dstX: dx, dstY: dy);
+    final padded = img.Image(width: _inputSize, height: _inputSize); // initialize a padded
+    img.fill(padded, color: img.ColorRgb8(128, 128, 128)); // fill with grey pixel
+    img.compositeImage(padded, resized, dstX: dx, dstY: dy); // paste the img in the center of the padded
     return padded;
 
   }
@@ -74,6 +69,7 @@ class YoloService {
 
   // Loads the model and labels from assets.
   Future<void> loadModel() async {
+
     try {
       print("🔄 Checking if model file exists...");
       _interpreter = await tfl.Interpreter.fromAsset('assets/models/yolov8n_float16.tflite');
@@ -178,10 +174,7 @@ class YoloService {
       detections = _applyNMS(detections);
       // print("<detections> After NMS: $detections");
 
-      if (detections.isNotEmpty) {
-        String speech = detections.map((d) => d['label']).join(', ');
-        await _flutterTts.speak("Detected: $speech");
-      }
+
     } catch (e) {
       // print("❌ Error running model: $e \n");
     }
@@ -213,7 +206,7 @@ class YoloService {
     }
     return filtered;
   }
-  // ⚠️ fix the boundingbox overlap problem.
+  //️ fix the boundingbox overlap problem.
   double _calculateIoU(Map<String, dynamic> a, Map<String, dynamic> b) {
     final aLeft = a['x'] - a['width'] / 2;
     final aTop = a['y'] - a['height'] / 2;

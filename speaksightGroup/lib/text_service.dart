@@ -2,15 +2,14 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:image/image.dart' as img;
 
 // Text Service class where the text recognition model is loaded and the image is processed
 class TextService {
   late TextRecognizer textRecognizer;
   String? selectedImagePath;
-  String recognisedText = "";
-  final FlutterTts _flutterTts = FlutterTts();
+
+
   String assetPath = 'assets/images/text.png';
 
   // Load the text recognition model
@@ -34,6 +33,7 @@ class TextService {
 
   // Process the image and recognize the text
   Future<String> runModel(img.Image image) async {
+    String recognisedText = '';
     try {
       // Copy asset image to a temporary file
       // final tempFile = await _copyAssetToFile(assetPath);
@@ -57,7 +57,6 @@ class TextService {
 
       recognisedText = textResult.blocks.first.text;
       print(recognisedText);
-      _flutterTts.speak(recognisedText);
     } catch (e) {
       // if (!mounted) return;
       // ScaffoldMessenger.of(context).showSnackBar(
@@ -68,5 +67,9 @@ class TextService {
       print("❌ Error loading text model: $e");
     }
     return recognisedText;
+  }
+
+  void dispose() {
+    textRecognizer.close();
   }
 }
