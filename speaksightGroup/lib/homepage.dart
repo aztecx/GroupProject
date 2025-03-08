@@ -9,6 +9,9 @@ import 'bounding_box_painter.dart';
 import 'yolo_service.dart';
 import 'dart:async';
 import 'dart:typed_data';
+import 'tts_service.dart';
+import 'dart:io';
+
 
 
 class Homepage extends StatefulWidget {
@@ -21,6 +24,11 @@ class _HomepageState extends State<Homepage> {
     'base': Stopwatch(),
     'runModel': Stopwatch(),
   };
+  ttsService tts = ttsService();
+  // final FlutterTts _flutterTts = FlutterTts();
+
+  bool isAndroid = Platform.isAndroid;
+  bool isIOS = Platform.isIOS;
 
   // Initialize the camera controller
   CameraController? _cameraController;
@@ -50,7 +58,9 @@ class _HomepageState extends State<Homepage> {
   @override
   void initState() {
     super.initState();
+    // tts.initTts();
     _checkCameraPermission();
+    tts.initTts();
 
     // Load the YOLO and Text models
     _yoloService.loadModel();
@@ -109,9 +119,12 @@ class _HomepageState extends State<Homepage> {
           if (modes[currentModeIndex] == 'Object Detection') {
             final results = await _yoloService.runModel(convertedImage);
             setState(() => _detectedObjects = results);
+            tts.speakObject(_detectedObjects);
+
           } else if (modes[currentModeIndex] == 'Text Recognition') {
             final results = await _textService.runModel(convertedImage);
             setState(() => _recognizedText = results);
+            tts.speakText(_recognizedText);
           }
         }
         timers['runModel']?.stop();
@@ -133,9 +146,9 @@ class _HomepageState extends State<Homepage> {
       // final int width = image.width;
       // final int height = image.height;
 
-      if (image.format.group == ImageFormatGroup.yuv420) {
+      if (isAndroid) {
         return _convertYUV420ToImage(image);
-      } else if (image.format.group == ImageFormatGroup.bgra8888) {
+      } else if (isIOS) {
         return _convertBGRA8888ToImage(image);
       }
       return null;
@@ -185,17 +198,22 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
-  void _switchMode() {
+  void _switchMode () async{
     Vibration.vibrate(duration: 100);
     // Switch mode
+    // tts = ttsService();
+    tts.switchMode();
+
+
     setState(() {
       currentModeIndex = (currentModeIndex + 1) % modes.length;
+      _detectedObjects.clear();
+      print("✅mode is switched");
     });
-    setState(() => _detectedObjects  = []);
+    tts.speakText('Switch to ${modes[currentModeIndex]}');
+    // TODO: stop detecting-->announce the current mode-->continue detecting
+    print("⚠️⚠️_detectedObjects is clear: $_detectedObjects");
 
-    // if (modes[currentModeIndex] == 'Text Recognition') {
-    //   Navigator.pushNamed(context, '/textModel');
-    // }
   }
 
   @override
