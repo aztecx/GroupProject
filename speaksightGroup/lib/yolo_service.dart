@@ -22,7 +22,7 @@ class YoloService {
   // Input image size used for the model.
   final int _inputSize = 320;
   // Confidence threshold for detection.
-  final double _confidenceThreshold = 0.2;
+  final double _confidenceThreshold = 0.5;
   // Set this flag to true if your model outputs normalized coordinates (0-1).
   // Set to false if it outputs absolute pixel values.
   final bool modelOutputsNormalized = true;

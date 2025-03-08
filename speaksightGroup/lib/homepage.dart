@@ -23,6 +23,8 @@ class _HomepageState extends State<Homepage> {
   final timers = <String, Stopwatch>{
     'base': Stopwatch(),
     'runModel': Stopwatch(),
+    'lastSpeak':Stopwatch()..start(),
+
   };
   ttsService tts = ttsService();
   // final FlutterTts _flutterTts = FlutterTts();
@@ -41,6 +43,8 @@ class _HomepageState extends State<Homepage> {
   final TextService _textService = TextService();
   
   List<Map<String, dynamic>> _detectedObjects = [];
+  List<Map<String, dynamic>> _previousDetections = []; //上一帧结果
+  List<List<String>> _recentDetections = []; //最近3帧的结果
   String _recognizedText = '';
 
   bool _isProcessing=false; // ⚠️防止并发处理
@@ -96,6 +100,7 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
+
   void _startDetectionLoop() async {
     // check if the camera is initialized
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
@@ -114,12 +119,39 @@ class _HomepageState extends State<Homepage> {
 
         timers['runModel']?.start();
 
+
+
         // Run the YOLO model
         if (convertedImage != null) {
           if (modes[currentModeIndex] == 'Object Detection') {
-            final results = await _yoloService.runModel(convertedImage);
-            setState(() => _detectedObjects = results);
-            tts.speakObject(_detectedObjects);
+            final thisResults = await _yoloService.runModel(convertedImage);
+            // final finalResults = _removeRepeatedObjects(thisResults,_previousDetections);
+
+            print("1️⃣This result: $thisResults");
+            // print("2️⃣Previous result: $_previousDetections");
+            // print("3️⃣Final result: $finalResults");
+
+            setState(() => _detectedObjects = thisResults);
+            if(thisResults.isNotEmpty){
+              final objectsInThisFrame = thisResults.map((obj) => obj['label'] as String).toList();
+              _recentDetections.add(objectsInThisFrame);
+              if(_recentDetections.length>5){
+                _recentDetections.removeAt(0);
+              }
+
+              final topFrequencyObj = _getTopFrequency(_recentDetections);
+              if(timers['lastSpeak']!=null) {
+                int currentTime = timers['lastSpeak']!.elapsedMilliseconds;
+                if (topFrequencyObj != null &&
+                     currentTime >= 2000) {
+                  tts.speakText(topFrequencyObj);
+                  print("Timer reset");
+                  timers['lastSpeak']?.reset();
+                }
+              }
+            }
+
+            // _previousDetections=thisResults;
 
           } else if (modes[currentModeIndex] == 'Text Recognition') {
             final results = await _textService.runModel(convertedImage);
@@ -198,6 +230,55 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
+  String? _getTopFrequency(List<List<String>> recentDetections) {
+    if (recentDetections.isEmpty) return null;
+
+    final allDetections = recentDetections.expand((frame) => frame).toList();
+
+    final Map<String, int> freqMap = {};
+    for (var label in allDetections) {
+      freqMap[label] = (freqMap[label] ?? 0) + 1;
+    }
+
+    String topLabel = freqMap.keys.first;
+    int topCount = freqMap[topLabel] ?? 0;
+
+    freqMap.forEach((label, count) {
+      if (count > topCount) {
+        topLabel = label;
+        topCount = count;
+      }
+    });
+    print("过去${recentDetections.length}帧中出现次数最多的label：$topLabel, 次数=$topCount");
+    return topLabel;
+  }
+
+  List<Map<String, dynamic>> _removeRepeatedObjects(
+      List<Map<String, dynamic>> newResults,
+      List<Map<String, dynamic>> prevResults,
+      ) {
+    final finalResults = <Map<String, dynamic>>[];
+
+    for (final newObj in newResults) {
+      final newLabel = newObj['label'];
+      bool isRepeated = false;
+
+      for (final oldObj in prevResults) {
+        if (oldObj['label'] == newLabel) {
+          isRepeated = true;
+          print("❌<$newLabel> 已存在，删除");
+          break;
+        }
+      }
+
+      if (!isRepeated) {
+        finalResults.add(newObj);
+      }
+    }
+    return finalResults;
+  }
+
+
   void _switchMode () async{
     Vibration.vibrate(duration: 100);
     // Switch mode
@@ -208,7 +289,8 @@ class _HomepageState extends State<Homepage> {
     setState(() {
       currentModeIndex = (currentModeIndex + 1) % modes.length;
       _detectedObjects.clear();
-      print("✅mode is switched");
+      _recognizedText='';
+
     });
     tts.speakText('Switch to ${modes[currentModeIndex]}');
     // TODO: stop detecting-->announce the current mode-->continue detecting
@@ -269,49 +351,4 @@ class _HomepageState extends State<Homepage> {
     );
 }
 
-
-  // @override
-  // Widget build(BuildContext context) {
-  //   return Scaffold(
-  //     appBar: AppBar(title: Text('Speak Sight')),
-  //     body: _isCameraInitialized
-  //         ? Stack(
-  //           children: [
-  //             Positioned.fill(
-  //               child: CameraPreview(_cameraController!),
-  //               ),
-  //               Positioned.fill(
-  //                 child: CustomPaint(
-  //                   painter: BoundingBoxPainter(_detectedObjects),
-  //                   ),
-  //                 ),
-  //               Positioned(
-  //                 bottom: 30,
-  //                 left: 0,
-  //                 right: 0,
-  //                 child: Column(
-  //                   children: [
-  //                     Text(
-  //                 'Current Mode: ${modes[currentModeIndex]}',
-  //                 style: TextStyle(
-  //                   fontSize: 22,
-  //                   color: Colors.white,
-  //                   shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-  //                 ),
-  //               ),
-  //               GestureDetector(
-  //                 onTap: () => Vibration.vibrate(duration: 50),
-  //                 onDoubleTap: _switchMode,
-  //                 child: Icon(Icons.touch_app, size: 50, color: Colors.white),
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ],
-  //         )
-  //         : Center(
-  //       child: CircularProgressIndicator(),
-  //     ),
-  //   );
-  // }
 }
