@@ -55,7 +55,7 @@ class TextService {
 
       final RecognizedText textResult = await textRecognizer.processImage(inputImage); 
 
-      recognisedText = textResult.text;
+      recognisedText = textResult.blocks.first.text;
       print(recognisedText);
       _flutterTts.speak(recognisedText);
     } catch (e) {

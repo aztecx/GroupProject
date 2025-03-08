@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:speaksightgroup/text_service.dart';
+import 'package:speaksightgroup/tts_service.dart';
 import 'package:vibration/vibration.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
@@ -9,6 +10,7 @@ import 'bounding_box_painter.dart';
 import 'yolo_service.dart';
 import 'dart:async';
 import 'dart:typed_data';
+import 'stt_service.dart';
 
 
 class Homepage extends StatefulWidget {
@@ -31,16 +33,20 @@ class _HomepageState extends State<Homepage> {
   // Initialize the YOLO service and Text service
   final YoloService _yoloService = YoloService();
   final TextService _textService = TextService();
+  final TtsService _tts = TtsService();
+  final SttService _stt = SttService();
   
+  // Initialize the result of detected objects and recognized text
   List<Map<String, dynamic>> _detectedObjects = [];
   String _recognizedText = '';
+  String _finalText = '';
 
   bool _isProcessing=false; // ⚠️防止并发处理
   
   // List of modes
   final List<String> modes = [
     'Object Detection',
-    // 'Object Search',
+    'Object Search',
     'Text Recognition'
   ];
   int currentModeIndex = 0;
@@ -52,9 +58,14 @@ class _HomepageState extends State<Homepage> {
     super.initState();
     _checkCameraPermission();
 
-    // Load the YOLO and Text models
+    // Load the YOLO model and Text model
     _yoloService.loadModel();
     _textService.loadModel();
+
+    // Initialize the TTS and STT
+    _tts.init();
+    _stt.init();
+
     timers['base']?.start();
   }
 
@@ -192,10 +203,6 @@ class _HomepageState extends State<Homepage> {
       currentModeIndex = (currentModeIndex + 1) % modes.length;
     });
     setState(() => _detectedObjects  = []);
-
-    // if (modes[currentModeIndex] == 'Text Recognition') {
-    //   Navigator.pushNamed(context, '/textModel');
-    // }
   }
 
   @override
@@ -213,6 +220,13 @@ class _HomepageState extends State<Homepage> {
       body: _isCameraInitialized
           ? GestureDetector(
               onDoubleTap: _switchMode,
+              onLongPressStart: (_) => _stt.startListening(),
+              onLongPressEnd: (_) async {
+                String finalText = await _stt.stopListening();
+                setState(() {
+                  _finalText = finalText;
+                });
+              },
               child: Stack(
                 children: [
                   Positioned.fill(
