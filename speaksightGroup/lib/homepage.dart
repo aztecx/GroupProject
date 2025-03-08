@@ -17,6 +17,11 @@ class Homepage extends StatefulWidget {
 }
 
 class _HomepageState extends State<Homepage> {
+  final timers = <String, Stopwatch>{
+    'base': Stopwatch(),
+    'runModel': Stopwatch(),
+  };
+
   // Initialize the camera controller
   CameraController? _cameraController;
   List<CameraDescription>? _cameras;
@@ -50,6 +55,7 @@ class _HomepageState extends State<Homepage> {
     // Load the YOLO and Text models
     _yoloService.loadModel();
     _textService.loadModel();
+    timers['base']?.start();
   }
 
   // Check the camera permission
@@ -96,6 +102,8 @@ class _HomepageState extends State<Homepage> {
         // Turn <CameraImage> into <img.Image>
         final img.Image? convertedImage = await _convertCameraImage(image);
 
+        timers['runModel']?.start();
+
         // Run the YOLO model
         if (convertedImage != null) {
           if (modes[currentModeIndex] == 'Object Detection') {
@@ -106,6 +114,12 @@ class _HomepageState extends State<Homepage> {
             setState(() => _recognizedText = results);
           }
         }
+        timers['runModel']?.stop();
+        timers['base']?.stop();
+        print('🕒🕒🕒🕒🕒🕒🕒🕒 Base: ${timers['base']?.elapsedMilliseconds}ms, Run Model: ${timers['runModel']?.elapsedMilliseconds}ms');
+        timers['runModel']?.reset();
+        timers['base']?.start();
+
       } catch (e) {
         print("❌ Image processing error: $e");
       } finally {
