@@ -74,7 +74,7 @@ class _HomepageState extends State<Homepage> {
     // Initialize the camera controller
     if (_cameras!.isNotEmpty) {
       // use the first camera with medium resolution
-      _cameraController = CameraController(_cameras![0], ResolutionPreset.medium);
+      _cameraController = CameraController(_cameras![0], ResolutionPreset.high);
       await _cameraController!.initialize();
 
       setState(() {
@@ -130,8 +130,8 @@ class _HomepageState extends State<Homepage> {
 
   Future<img.Image?> _convertCameraImage(CameraImage image) async {
     try {
-      final int width = image.width;
-      final int height = image.height;
+      // final int width = image.width;
+      // final int height = image.height;
 
       if (image.format.group == ImageFormatGroup.yuv420) {
         return _convertYUV420ToImage(image);
@@ -191,6 +191,7 @@ class _HomepageState extends State<Homepage> {
     setState(() {
       currentModeIndex = (currentModeIndex + 1) % modes.length;
     });
+    setState(() => _detectedObjects  = []);
 
     // if (modes[currentModeIndex] == 'Text Recognition') {
     //   Navigator.pushNamed(context, '/textModel');
