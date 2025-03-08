@@ -1,7 +1,8 @@
 import 'package:flutter_tts/flutter_tts.dart';
 
-class ttsService{
+class TtsService{
   final FlutterTts _flutterTts = FlutterTts();
+
 
 
   Future<void> initTts() async {
@@ -28,7 +29,6 @@ class ttsService{
   Future<void> pause()async{
     // await _flutterTts.pause();
     await _flutterTts.pause();
-
   }
 
   Future<void> stop()async{

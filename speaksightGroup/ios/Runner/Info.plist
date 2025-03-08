@@ -28,6 +28,8 @@
 	<string>This app requires camera access to detect objects.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app requires microphone access for voice input.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app requires speech recognition for voice input</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
