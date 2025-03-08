@@ -1,12 +1,4 @@
 # CHANGELOG
-## Guiding Principles
-- Changelogs are for humans, not machines.
-- There should be an entry for every single version.
-- The same types of changes should be grouped.
-- Versions and sections should be linkable.
-- `The latest version comes first!!!!!`
-- The release date of each version is displayed.
-- Mention whether you follow [Semantic Versioning](https://semver.org/).
 ## Types of changes
 - `Added` for new features.
 - `Changed` for changes in existing functionality.
@@ -14,8 +6,54 @@
 - `Removed` for now removed features. 
 - `Fixed` for any bug fixes. 
 - `Security` in case of vulnerabilities.
-## [v0.1.0]10/02/2025 @Jiwei
-### Added
+
+
+
+## 08/03/2025
+### Added @Yide
+- tts_service.dart
+
+### Added @Jiwei
+- Filter for List<detections>
+  - only announce the object with highest frequency in the past 5 frames.
+- Timer for tts.speak, added a time gap between each announcement.
+
+### Changed @Assem
+- Input size is now 320 (was 640)
+
+
+## 06/03/2025
+### Fixed @Yide
+- image input for text model
+- mode switch
+
+## 05/03/2025
+### Added @Yide
+- Integrate text recognition with original homepage
+
+### Added @Jiwei
+- convertImage to RGB in iOS and Android
+
+### Changed @Jiwei
+- Image resized method
+- Replace <takePicture> with <ImageStream>
+
+## 04/03/2025
+### Fixed @Assem
+- label incorrect
+
+## 01/03/2025
+### Added @Yide
+- Text recognition
+
+### Changed @Yide
+- update  yolo_service
+
+### Fixed @Yide
+- Two same function: <label> and <_label>
+
+## 10/02/2025 
+### Added @Jiwei
 - .gitignore created
 - Integrated YOLO for object detection
 - Loaded the dataset, randomly selecting an image for detection.
