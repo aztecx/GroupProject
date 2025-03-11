@@ -28,8 +28,6 @@ class _HomepageState extends State<Homepage> {
     'lastSpeak':Stopwatch()..start(),
 
   };
-  final TtsService tts = TtsService();
-  // final FlutterTts _flutterTts = FlutterTts();
 
   bool isAndroid = Platform.isAndroid;
   bool isIOS = Platform.isIOS;
@@ -48,10 +46,15 @@ class _HomepageState extends State<Homepage> {
   
   // Initialize the result of detected objects and recognized text
   List<Map<String, dynamic>> _detectedObjects = [];
-  List<Map<String, dynamic>> _previousDetections = []; //上一帧结果
   List<List<String>> _recentDetections = []; //最近3帧的结果
   String _recognizedText = '';
   String _finalText = '';
+
+  // Lookup tables for YUV420 to RGB conversion
+  static late final List<int> _rVTable = _createRVTable();
+  static late final List<int> _gUTable = _createGUTable();
+  static late final List<int> _gVTable = _createGVTable();
+  static late final List<int> _bUTable = _createBUTable();
 
   bool _isProcessing=false; // ⚠️防止并发处理
   
@@ -63,14 +66,13 @@ class _HomepageState extends State<Homepage> {
   ];
   int currentModeIndex = 0;
 
-
   // Check the camera permission and initialize the camera
   @override
   void initState() {
     super.initState();
-    // tts.initTts();
+    // _tts.initTts();
     _checkCameraPermission();
-    tts.initTts();
+    _tts.initTts();
 
     // Load the YOLO model and Text model
     _yoloService.loadModel();
@@ -99,7 +101,7 @@ class _HomepageState extends State<Homepage> {
     // Initialize the camera controller
     if (_cameras!.isNotEmpty) {
       // use the first camera with medium resolution
-      _cameraController = CameraController(_cameras![0], ResolutionPreset.high);
+      _cameraController = CameraController(_cameras![0], ResolutionPreset.medium);
       await _cameraController!.initialize();
 
       setState(() {
@@ -138,38 +140,44 @@ class _HomepageState extends State<Homepage> {
             final thisResults = await _yoloService.runModel(convertedImage);
             // final finalResults = _removeRepeatedObjects(thisResults,_previousDetections);
 
-            print("1️⃣This result: $thisResults");
-            // print("2️⃣Previous result: $_previousDetections");
+            // print("1️⃣This result: ${thisResults.map((result) => result['label']).toList()}");
+            // print("2️⃣Previous result: ${_previousDetections}");
             // print("3️⃣Final result: $finalResults");
 
             setState(() => _detectedObjects = thisResults);
+            // _tts.speakObject(_detectedObjects);
             if(thisResults.isNotEmpty){
               final objectsInThisFrame = thisResults.map((obj) => obj['label'] as String).toList();
               _recentDetections.add(objectsInThisFrame);
-              if(_recentDetections.length>5){
+              if(_recentDetections.length > 10){ //最近10帧
                 _recentDetections.removeAt(0);
               }
 
               final topFrequencyObj = _getTopFrequency(_recentDetections);
               if(timers['lastSpeak']!=null) {
                 int currentTime = timers['lastSpeak']!.elapsedMilliseconds;
+                print("Since lastSpeak: $currentTime");
                 if (topFrequencyObj != null &&
-                     currentTime >= 2000) {
-                  tts.speakText(topFrequencyObj);
-                  print("Timer reset");
-                  timers['lastSpeak']?.reset();
+                     currentTime >= 3000) {
+                      _tts.speakText(topFrequencyObj);
+                      // print("Since lastSpeak: $currentTime");
+                      timers['lastSpeak']?.reset();
+                      
                 }
               }
             }
 
-            // _previousDetections=thisResults;
-
           } else if (modes[currentModeIndex] == 'Text Recognition') {
             final results = await _textService.runModel(convertedImage);
             setState(() => _recognizedText = results);
-            tts.speakText(_recognizedText);
+            // int currentTime = timers['lastSpeak']!.elapsedMilliseconds;
+            // if (results.isNotEmpty && currentTime >= 3000) {
+            _tts.speakText(_recognizedText);
+              // timers['lastSpeak']?.reset();
+            // }
           }
         }
+
         timers['runModel']?.stop();
         timers['base']?.stop();
         print('🕒🕒🕒🕒🕒🕒🕒🕒 Base: ${timers['base']?.elapsedMilliseconds}ms, Run Model: ${timers['runModel']?.elapsedMilliseconds}ms');
@@ -190,8 +198,10 @@ class _HomepageState extends State<Homepage> {
       // final int height = image.height;
 
       if (isAndroid) {
+        print("⚠️Android Camera Image");
         return _convertYUV420ToImage(image);
       } else if (isIOS) {
+        print("⚠️iOS Camera Image");
         return _convertBGRA8888ToImage(image);
       }
       return null;
@@ -201,6 +211,12 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
+
+  /*
+  * Adapted from: https://blog.csdn.net/liyuanbhu/article/details/68951683
+  * Author: @liyuanbhu
+  */
+  
   // ⚠️For Camera on Android OS
   img.Image _convertYUV420ToImage(CameraImage image) {
     final int width = image.width;
@@ -208,27 +224,105 @@ class _HomepageState extends State<Homepage> {
     final int uvRowStride = image.planes[1].bytesPerRow;
     final int uvPixelStride = image.planes[1].bytesPerPixel!;
 
+    // prepare the planes
+    final yPlane = image.planes[0].bytes;
+    final uPlane = image.planes[1].bytes;
+    final vPlane = image.planes[2].bytes;
+
     final img.Image converted = img.Image(width: width, height: height);
 
-    // YUV to RGB
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        final int uvIndex = uvPixelStride * (x / 2).floor() + uvRowStride * (y / 2).floor();
-        final int yIndex = y * width + x;
+    // create lookup tables
+    final rVTable = _createRVTable();
+    final gUTable = _createGUTable();
+    final gVTable = _createGVTable();
+    final bUTable = _createBUTable();
 
-        final yValue = image.planes[0].bytes[yIndex];
-        final uValue = image.planes[1].bytes[uvIndex];
-        final vValue = image.planes[2].bytes[uvIndex];
+    // handle with 2x2 block
+    for (int y = 0; y < height; y += 2) {
+      for (int x = 0; x < width; x += 2) {
+        // calculate the uv index
+        final int uvX = (x ~/ 2);
+        final int uvY = (y ~/ 2);
+        final int uvIndex = uvY * uvRowStride + uvX * uvPixelStride;
+        final int u = uPlane[uvIndex];
+        final int v = vPlane[uvIndex];
 
-        final r = (yValue + 1.402 * (vValue - 128)).clamp(0, 255);
-        final g = (yValue - 0.344136 * (uValue - 128) - 0.714136 * (vValue - 128)).clamp(0, 255);
-        final b = (yValue + 1.772 * (uValue - 128)).clamp(0, 255);
+        // calculate the r, g, b values
+        final int rAdd = rVTable[v];
+        final int gAdd = gUTable[u] + gVTable[v];
+        final int bAdd = bUTable[u];
 
-        converted.setPixelRgba(x, y, r.toInt(), g.toInt(), b.toInt(),255);
+        // set the 2x2 pixel values
+        for (int dy = 0; dy < 2; dy++) {
+          final int py = y + dy;
+          if (py >= height) break;
+          for (int dx = 0; dx < 2; dx++) {
+            final int px = x + dx;
+            if (px >= width) break;
+            final int yIndex = py * width + px;
+            final int yValue = yPlane[yIndex];
+            int r = ((yValue << 10) + rAdd) >> 10;
+            int g = ((yValue << 10) + gAdd) >> 10;
+            int b = ((yValue << 10) + bAdd) >> 10;
+
+            converted.setPixelRgba(
+              px,
+              py,
+              r.clamp(0, 255),
+              g.clamp(0, 255),
+              b.clamp(0, 255),
+              255,
+            );
+          }
+        }
       }
     }
     return converted;
   }
+
+  // Create lookup tables for YUV420 to RGB conversion
+  static List<int> _createRVTable() {
+    return List.generate(256, (v) => (1.402 * (v - 128) * 1024).toInt());
+  }
+
+  static List<int> _createGUTable() {
+    return List.generate(256, (u) => (-0.344136 * (u - 128) * 1024).toInt());
+  }
+
+  static List<int> _createGVTable() {
+    return List.generate(256, (v) => (-0.714136 * (v - 128) * 1024).toInt());
+  }
+
+  static List<int> _createBUTable() {
+    return List.generate(256, (u) => (1.772 * (u - 128) * 1024).toInt());
+  }
+  // img.Image _convertYUV420ToImage(CameraImage image) {
+  //   final int width = image.width;
+  //   final int height = image.height;
+  //   final int uvRowStride = image.planes[1].bytesPerRow;
+  //   final int uvPixelStride = image.planes[1].bytesPerPixel!;
+
+  //   final img.Image converted = img.Image(width: width, height: height);
+
+  //   // YUV to RGB
+  //   for (int y = 0; y < height; y++) {
+  //     for (int x = 0; x < width; x++) {
+  //       final int uvIndex = uvPixelStride * (x / 2).floor() + uvRowStride * (y / 2).floor();
+  //       final int yIndex = y * width + x;
+
+  //       final yValue = image.planes[0].bytes[yIndex];
+  //       final uValue = image.planes[1].bytes[uvIndex];
+  //       final vValue = image.planes[2].bytes[uvIndex];
+
+  //       final r = (yValue + 1.402 * (vValue - 128)).clamp(0, 255);
+  //       final g = (yValue - 0.344136 * (uValue - 128) - 0.714136 * (vValue - 128)).clamp(0, 255);
+  //       final b = (yValue + 1.772 * (uValue - 128)).clamp(0, 255);
+
+  //       converted.setPixelRgba(x, y, r.toInt(), g.toInt(), b.toInt(),255);
+  //     }
+  //   }
+  //   return converted;
+  // }
 
   // For Camera on iOS
   img.Image _convertBGRA8888ToImage(CameraImage image) {
@@ -293,8 +387,8 @@ class _HomepageState extends State<Homepage> {
   void _switchMode () async{
     Vibration.vibrate(duration: 100);
     // Switch mode
-    // tts = ttsService();
-    tts.switchMode();
+    // _tts = ttsService();
+    _tts.switchMode();
 
 
     setState(() {
@@ -303,8 +397,7 @@ class _HomepageState extends State<Homepage> {
       _recognizedText='';
 
     });
-    tts.speakText('Switch to ${modes[currentModeIndex]}');
-    // TODO: stop detecting-->announce the current mode-->continue detecting
+    _tts.speakText('Switch to ${modes[currentModeIndex]}');
     print("⚠️⚠️_detectedObjects is clear: $_detectedObjects");
 
   }
@@ -314,9 +407,11 @@ class _HomepageState extends State<Homepage> {
     _imageStreamSubscription?.cancel();
     _cameraController?.stopImageStream();
     _cameraController?.dispose();
+    _tts.stop();
     super.dispose();
   }
 
+  bool _hasSwipedLeft = false;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -324,6 +419,21 @@ class _HomepageState extends State<Homepage> {
       body: _isCameraInitialized
           ? GestureDetector(
               onDoubleTap: _switchMode,
+              //Swipe left to switch mode
+              /*
+              onPanStart: (details) {
+              _hasSwipedLeft = false;
+            },
+            onPanUpdate: (details) {
+              if (details.delta.dx < -10 && !_hasSwipedLeft) {
+                _hasSwipedLeft = true;
+                _switchMode();
+              }
+            },
+            onPanEnd: (details) {
+              _hasSwipedLeft = false;
+            },
+            */
               onLongPressStart: (_) => _stt.startListening(),
               onLongPressEnd: (_) async {
                 String finalText = await _stt.stopListening();

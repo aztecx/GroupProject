@@ -35,6 +35,10 @@ class TextService {
   Future<String> runModel(img.Image image) async {
     String recognisedText = '';
     try {
+// Copy asset image to a temporary file
+      // final tempFile = await _copyAssetToFile(assetPath);
+      // final inputImage = InputImage.fromFilePath(tempFile.path);
+
       // Copy asset image to a temporary file
       // final tempFile = await _copyAssetToFile(assetPath);
       // final inputImage = InputImage.fromFilePath(tempFile.path);
@@ -55,11 +59,17 @@ class TextService {
 
       final RecognizedText textResult = await textRecognizer.processImage(inputImage); 
       double offest = textResult.blocks.first.boundingBox.center.dy;
-      print(offest);
+      // print(offest);
       recognisedText = textResult.blocks.first.text;
       // print(recognisedText);
 
     } catch (e) {
+// if (!mounted) return;
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(
+      //     content: Text('Error recognizing text: $e'),
+      //   ),
+      // );
       // if (!mounted) return;
       // ScaffoldMessenger.of(context).showSnackBar(
       //   SnackBar(

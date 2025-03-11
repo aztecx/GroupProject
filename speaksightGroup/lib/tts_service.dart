@@ -16,7 +16,7 @@ class TtsService{
   Future<void> speakObject(List<Map<String, dynamic>> detections)async{
     if (detections.isNotEmpty) {
       String object = detections.map((d) => d['label']).join(', ');
-      await _flutterTts.speak("Detected: $object");
+      await _flutterTts.speak(object);
     }
 
   }
@@ -41,6 +41,7 @@ class TtsService{
     _flutterTts.setQueueMode(0);
     _flutterTts.speak('');
     _flutterTts.stop();
+    _flutterTts.setQueueMode(1);
   }
 }
 

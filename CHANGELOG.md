@@ -7,11 +7,15 @@
 - `Fixed` for any bug fixes. 
 - `Security` in case of vulnerabilities.
 
-
+## 11/03/2025
+### Changed @Jiwei
+- Optimized <_prepareInput> in yolo_service.dart
+- Optimized <_convertYUV420ToImage> in homepage.dart
 
 ## 08/03/2025
 ### Added @Yide
 - tts_service.dart
+- stt_service.dart
 
 ### Added @Jiwei
 - Filter for List<detections>
