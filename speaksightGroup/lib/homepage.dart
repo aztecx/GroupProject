@@ -51,10 +51,10 @@ class _HomepageState extends State<Homepage> {
   String _finalText = '';
 
   // Lookup tables for YUV420 to RGB conversion
-  static late final List<int> _rVTable = _createRVTable();
-  static late final List<int> _gUTable = _createGUTable();
-  static late final List<int> _gVTable = _createGVTable();
-  static late final List<int> _bUTable = _createBUTable();
+  // static late final List<int> _rVTable = _createRVTable();
+  // static late final List<int> _gUTable = _createGUTable();
+  // static late final List<int> _gVTable = _createGVTable();
+  // static late final List<int> _bUTable = _createBUTable();
 
   bool _isProcessing=false; // ⚠️防止并发处理
   
@@ -158,7 +158,7 @@ class _HomepageState extends State<Homepage> {
                 int currentTime = timers['lastSpeak']!.elapsedMilliseconds;
                 print("Since lastSpeak: $currentTime");
                 if (topFrequencyObj != null &&
-                     currentTime >= 3000) {
+                     currentTime >= 2000) {
                       _tts.speakText(topFrequencyObj);
                       // print("Since lastSpeak: $currentTime");
                       timers['lastSpeak']?.reset();
@@ -198,11 +198,22 @@ class _HomepageState extends State<Homepage> {
       // final int height = image.height;
 
       if (isAndroid) {
-        print("⚠️Android Camera Image");
-        return _convertYUV420ToImage(image);
+        if (image.format.raw == 17 && image.planes.length == 2) {
+          // 说明是 NV21
+          print("⚠️NV21");
+          return _convertNV21ToImage(image);
+        } else {
+          print("⚠️YUV420");
+          // 其他 YUV420 可能用你原先的 _convertYUV420ToImage
+          return _convertYUV420ToImage(image);
+        }
+
+
+
       } else if (isIOS) {
         print("⚠️iOS Camera Image");
         return _convertBGRA8888ToImage(image);
+        // return null;
       }
       return null;
     } catch (e) {
@@ -216,113 +227,208 @@ class _HomepageState extends State<Homepage> {
   * Adapted from: https://blog.csdn.net/liyuanbhu/article/details/68951683
   * Author: @liyuanbhu
   */
-  
+
   // ⚠️For Camera on Android OS
-  img.Image _convertYUV420ToImage(CameraImage image) {
+  // static img.Image? convertedImage;
+  //
+  // Future <img.Image?> _convertYUV420ToImage(CameraImage image) async {
+  //   if (convertedImage == null || convertedImage!.width != image.width || convertedImage!.height != image.height) {
+  //     convertedImage = img.Image(width: image.width, height: image.height);
+  //   }
+  //   final int width = image.width;
+  //   final int height = image.height;
+  //   final int uvRowStride = image.planes[1].bytesPerRow;
+  //   final int uvPixelStride = image.planes[1].bytesPerPixel!;
+  //
+  //   // prepare the planes
+  //   final yPlane = image.planes[0].bytes;
+  //   final uPlane = image.planes[1].bytes;
+  //   final vPlane = image.planes[2].bytes;
+  //
+  //   // final img.Image converted = img.Image(width: width, height: height);
+  //
+  //   // create lookup tables
+  //   final rVTable = _createRVTable();
+  //   final gUTable = _createGUTable();
+  //   final gVTable = _createGVTable();
+  //   final bUTable = _createBUTable();
+  //
+  //   // handle with 2x2 block
+  //   for (int y = 0; y < height; y += 2) {
+  //     for (int x = 0; x < width; x += 2) {
+  //       // calculate the uv index
+  //       final int uvX = (x ~/ 2);
+  //       final int uvY = (y ~/ 2);
+  //       final int uvIndex = uvY * uvRowStride + uvX * uvPixelStride;
+  //       final int u = uPlane[uvIndex];
+  //       final int v = vPlane[uvIndex];
+  //
+  //       // calculate the r, g, b values
+  //       final int rAdd = rVTable[v];
+  //       final int gAdd = gUTable[u] + gVTable[v];
+  //       final int bAdd = bUTable[u];
+  //
+  //       // set the 2x2 pixel values
+  //       for (int dy = 0; dy < 2; dy++) {
+  //         final int py = y + dy;
+  //         if (py >= height) break;
+  //         for (int dx = 0; dx < 2; dx++) {
+  //           final int px = x + dx;
+  //           if (px >= width) break;
+  //           final int yIndex = py * width + px;
+  //           final int yValue = yPlane[yIndex];
+  //           int r = ((yValue << 10) + rAdd) >> 10;
+  //           int g = ((yValue << 10) + gAdd) >> 10;
+  //           int b = ((yValue << 10) + bAdd) >> 10;
+  //
+  //           convertedImage?.setPixelRgba(
+  //             px,
+  //             py,
+  //             r.clamp(0, 255),
+  //             g.clamp(0, 255),
+  //             b.clamp(0, 255),
+  //             255,
+  //           );
+  //         }
+  //       }
+  //     }
+  //   }
+  //   return convertedImage;
+  // }
+  //
+  // // Create lookup tables for YUV420 to RGB conversion
+  // static List<int> _createRVTable() {
+  //   return List.generate(256, (v) => (1.402 * (v - 128) * 1024).toInt());
+  // }
+  //
+  // static List<int> _createGUTable() {
+  //   return List.generate(256, (u) => (-0.344136 * (u - 128) * 1024).toInt());
+  // }
+  //
+  // static List<int> _createGVTable() {
+  //   return List.generate(256, (v) => (-0.714136 * (v - 128) * 1024).toInt());
+  // }
+  //
+  // static List<int> _createBUTable() {
+  //   return List.generate(256, (u) => (1.772 * (u - 128) * 1024).toInt());
+  // }
+  Uint8List? _rgbaBuffer;
+  img.Image? convertedImage;
+
+  img.Image? _convertYUV420ToImage(CameraImage image) {
     final int width = image.width;
     final int height = image.height;
     final int uvRowStride = image.planes[1].bytesPerRow;
     final int uvPixelStride = image.planes[1].bytesPerPixel!;
 
-    // prepare the planes
-    final yPlane = image.planes[0].bytes;
-    final uPlane = image.planes[1].bytes;
-    final vPlane = image.planes[2].bytes;
+    // final img.Image converted = img.Image(width: width, height: height);
+    final neededLength = width * height * 4; // RGBA 4字节
+    if (_rgbaBuffer == null || _rgbaBuffer!.length != neededLength) {
+      _rgbaBuffer = Uint8List(neededLength);
+    }
 
-    final img.Image converted = img.Image(width: width, height: height);
+    // 填充 _rgbaBuffer
+    final planeY = image.planes[0].bytes;
+    final planeU = image.planes[1].bytes;
+    final planeV = image.planes[2].bytes;
 
-    // create lookup tables
-    final rVTable = _createRVTable();
-    final gUTable = _createGUTable();
-    final gVTable = _createGVTable();
-    final bUTable = _createBUTable();
+    var index = 0;
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        final uvIndex = uvPixelStride * (x ~/ 2) + uvRowStride * (y ~/ 2);
+        final yValue = planeY[y * width + x];
+        final uValue = planeU[uvIndex];
+        final vValue = planeV[uvIndex];
 
-    // handle with 2x2 block
-    for (int y = 0; y < height; y += 2) {
-      for (int x = 0; x < width; x += 2) {
-        // calculate the uv index
-        final int uvX = (x ~/ 2);
-        final int uvY = (y ~/ 2);
-        final int uvIndex = uvY * uvRowStride + uvX * uvPixelStride;
-        final int u = uPlane[uvIndex];
-        final int v = vPlane[uvIndex];
+        final r = (yValue + 1.402 * (vValue - 128)).clamp(0, 255).toInt();
+        final g = (yValue - 0.344136 * (uValue - 128) - 0.714136 * (vValue - 128)).clamp(0, 255).toInt();
+        final b = (yValue + 1.772 * (uValue - 128)).clamp(0, 255).toInt();
 
-        // calculate the r, g, b values
-        final int rAdd = rVTable[v];
-        final int gAdd = gUTable[u] + gVTable[v];
-        final int bAdd = bUTable[u];
-
-        // set the 2x2 pixel values
-        for (int dy = 0; dy < 2; dy++) {
-          final int py = y + dy;
-          if (py >= height) break;
-          for (int dx = 0; dx < 2; dx++) {
-            final int px = x + dx;
-            if (px >= width) break;
-            final int yIndex = py * width + px;
-            final int yValue = yPlane[yIndex];
-            int r = ((yValue << 10) + rAdd) >> 10;
-            int g = ((yValue << 10) + gAdd) >> 10;
-            int b = ((yValue << 10) + bAdd) >> 10;
-
-            converted.setPixelRgba(
-              px,
-              py,
-              r.clamp(0, 255),
-              g.clamp(0, 255),
-              b.clamp(0, 255),
-              255,
-            );
-          }
-        }
+        _rgbaBuffer![index++] = r;
+        _rgbaBuffer![index++] = g;
+        _rgbaBuffer![index++] = b;
+        _rgbaBuffer![index++] = 255; // alpha
       }
     }
-    return converted;
+
+    if (convertedImage == null ||
+    convertedImage!.width != width ||
+    convertedImage!.height != height) 
+    {
+      convertedImage = img.Image(width: width, height: height, numChannels: 4);
+    }
+
+    // 用 fromBytes 复用同一个 buffer
+    convertedImage = img.Image.fromBytes(
+      width: width,
+      height: height,
+      bytes: _rgbaBuffer!.buffer,
+      order: img.ChannelOrder.rgba,
+    );
+    return convertedImage!;
   }
 
-  // Create lookup tables for YUV420 to RGB conversion
-  static List<int> _createRVTable() {
-    return List.generate(256, (v) => (1.402 * (v - 128) * 1024).toInt());
+  img.Image? _convertNV21ToImage(CameraImage image) {
+    // NV21: Plane 0 = Y, Plane 1 = VU interleaved
+    final width = image.width;
+    final height = image.height;
+
+    // 通常情况下：
+    //   image.planes[0] 存 Y 分量
+    //   image.planes[1] 存 VU 分量 (两个字节一组：V, U, V, U, ...)
+    final planeY = image.planes[0];
+    final planeVU = image.planes[1];
+
+    final yBytes = planeY.bytes;
+    final vuBytes = planeVU.bytes;
+
+    // 新建 / 复用 RGBA buffer
+    final neededLength = width * height * 4; // RGBA
+    Uint8List rgbaBuffer = Uint8List(neededLength);
+
+    int index = 0;
+    for (int y = 0; y < height; y++) {
+      // 当前行相对于 planeY 的起始 index
+      final yRowStart = y * planeY.bytesPerRow;
+      // NV21 中，U/V 的分辨率是 (width/2) x (height/2)，
+      // 每两个竖行共用一行 UV 数据
+      final uvRowStart = (y >> 1) * planeVU.bytesPerRow;
+
+      for (int x = 0; x < width; x++) {
+        // 取 Y
+        final yValue = yBytes[yRowStart + x];
+
+        // 计算 UV 在 planeVU 里的位置
+        // (x >> 1) 表示每 2 像素共用一组 (V,U)
+        // NV21 排列：VU VU VU...
+        final uvIndex = uvRowStart + (x >> 1) * 2;
+        final vValue = vuBytes[uvIndex + 0];
+        final uValue = vuBytes[uvIndex + 1];
+
+        // 和常规的 YUV->RGB 转换公式相同，只是要注意取值顺序
+        final r = (yValue + 1.402 * (vValue - 128)).clamp(0, 255).toInt();
+        final g = (yValue - 0.344136 * (uValue - 128)
+            - 0.714136 * (vValue - 128)).clamp(0, 255).toInt();
+        final b = (yValue + 1.772 * (uValue - 128)).clamp(0, 255).toInt();
+
+        rgbaBuffer[index++] = r;
+        rgbaBuffer[index++] = g;
+        rgbaBuffer[index++] = b;
+        rgbaBuffer[index++] = 255; // alpha
+      }
+    }
+
+    // 把 RGBA buffer 转成 img.Image
+    // 注意，如果你需要重复利用同一个 img.Image 对象，可自行做缓存
+    final convertedImage = img.Image.fromBytes(
+      width: width,
+      height: height,
+      bytes: rgbaBuffer.buffer,
+      order: img.ChannelOrder.rgba,
+    );
+
+    return convertedImage;
   }
-
-  static List<int> _createGUTable() {
-    return List.generate(256, (u) => (-0.344136 * (u - 128) * 1024).toInt());
-  }
-
-  static List<int> _createGVTable() {
-    return List.generate(256, (v) => (-0.714136 * (v - 128) * 1024).toInt());
-  }
-
-  static List<int> _createBUTable() {
-    return List.generate(256, (u) => (1.772 * (u - 128) * 1024).toInt());
-  }
-  // img.Image _convertYUV420ToImage(CameraImage image) {
-  //   final int width = image.width;
-  //   final int height = image.height;
-  //   final int uvRowStride = image.planes[1].bytesPerRow;
-  //   final int uvPixelStride = image.planes[1].bytesPerPixel!;
-
-  //   final img.Image converted = img.Image(width: width, height: height);
-
-  //   // YUV to RGB
-  //   for (int y = 0; y < height; y++) {
-  //     for (int x = 0; x < width; x++) {
-  //       final int uvIndex = uvPixelStride * (x / 2).floor() + uvRowStride * (y / 2).floor();
-  //       final int yIndex = y * width + x;
-
-  //       final yValue = image.planes[0].bytes[yIndex];
-  //       final uValue = image.planes[1].bytes[uvIndex];
-  //       final vValue = image.planes[2].bytes[uvIndex];
-
-  //       final r = (yValue + 1.402 * (vValue - 128)).clamp(0, 255);
-  //       final g = (yValue - 0.344136 * (uValue - 128) - 0.714136 * (vValue - 128)).clamp(0, 255);
-  //       final b = (yValue + 1.772 * (uValue - 128)).clamp(0, 255);
-
-  //       converted.setPixelRgba(x, y, r.toInt(), g.toInt(), b.toInt(),255);
-  //     }
-  //   }
-  //   return converted;
-  // }
 
   // For Camera on iOS
   img.Image _convertBGRA8888ToImage(CameraImage image) {

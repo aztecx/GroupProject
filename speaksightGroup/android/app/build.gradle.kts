@@ -5,6 +5,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+dependencies {
+    implementation("androidx.core:core-ktx:1.7.0")
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.10")
+}
+
+
+
 android {
     namespace = "com.example.speaksightgroup"
     compileSdk = flutter.compileSdkVersion

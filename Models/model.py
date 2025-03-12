@@ -5,8 +5,8 @@ import cv2
 
 
 
-# model = YOLO('yolo11n.pt')
-model = YOLO('yolov8n.pt')
+model = YOLO('yolo11n.pt')
+# model = YOLO('yolov8n.pt')
 model.export(imgsz=320,format='tflite')
 
 

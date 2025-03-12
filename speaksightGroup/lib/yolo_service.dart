@@ -7,46 +7,6 @@ import 'dart:typed_data';
 import 'dart:math' as math;
 
 
-class _Detection {
-  final Rect rect;
-  final String label;
-  final double confidence;
-
-  _Detection({
-    required this.rect,
-    required this.label,
-    required this.confidence,
-  });
-
-  factory _Detection.fromRaw(
-    double cx, 
-    double cy,
-    double width,
-    double height,
-    String label,
-    double confidence,
-  ) {
-    return _Detection(
-      rect: Rect.fromLTWH(
-        cx - width / 2,
-        cy - height / 2,
-        width,
-        height
-      ),
-      label: label,
-      confidence: confidence,
-    );
-  }
-
-  Map<String, dynamic> toMap() => {
-    'x': rect.left + rect.width / 2,
-    'y': rect.top + rect.height / 2,
-    'width': rect.width,
-    'height': rect.height,
-    'label': label,
-    'confidence': confidence,
-  };
-}
 
 class YoloService {
   
@@ -124,7 +84,7 @@ class YoloService {
         ..threads = 2;
 
       print("🔄 Checking if model file exists...");
-      _interpreter = await tfl.Interpreter.fromAsset('assets/models/yolov8n_float16.tflite');
+      _interpreter = await tfl.Interpreter.fromAsset('assets/models/yolo11n_float16.tflite');
       print("✅ Model file exists!");
 
       // Load labels from the file.
@@ -160,7 +120,7 @@ class YoloService {
       timers['preprocess']?.stop();
 
       // ⚠️内存溢出问题，很可能是由output这里引发的
-      final output = List<List<List<double>>>.generate(
+      List<List<List<double>>> ?output = List<List<List<double>>>.generate(
         1,
             (_) => List<List<double>>.generate(84, (_) => List<double>.filled(2100, 0.0, growable: false),
             growable: false),
@@ -178,6 +138,8 @@ class YoloService {
           transposedOutput[j][i] = output[0][i][j];
         }
       }
+
+      output = null;
       // print("📊 Transposed detections count: ${transposedOutput.length}");
 
       // Process each detection.
@@ -220,9 +182,9 @@ class YoloService {
         }
       }
 
-      // print("<detections> Before NMS: $detections");
+      print("<detections> Before NMS: $detections");
       detections = _applyNMS(detections);
-      // print("<detections> After NMS: $detections");
+      print("<detections> After NMS: $detections");
 
 
     } catch (e) {
@@ -239,6 +201,8 @@ class YoloService {
     timers['preprocess']?.reset();
     timers['interpreter']?.reset();
     timers['NMS']?.reset();
+
+
     return detections;
 
   }

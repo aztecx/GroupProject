@@ -77,6 +77,8 @@ flutter:
     - assets/labels/coco_labels.txt
     - assets/models/yolov8n_float16.tflite
     - assets/models/yolov8n_float32.tflite
+    - assets/models/yolo11n_float16.tflite
+    - assets/models/yolo11n_float32.tflite
     - assets/images/text.png
 
 
