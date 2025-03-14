@@ -1,145 +1,307 @@
-// lib/text_model.dart
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'text_service.dart';
-import 'dart:async';
+import 'package:vibration/vibration.dart';
+import 'package:flutter/services.dart';
 
 class TextModelPage extends StatefulWidget {
   @override
   _TextModelPageState createState() => _TextModelPageState();
 }
 
-class _TextModelPageState extends State<TextModelPage> {
-  CameraController? _cameraController;
-  List<CameraDescription>? _cameras;
-  final TextService _textService = TextService();
-  bool _isCameraInitialized = false;
-  bool _isDetecting = false;
-  String _recognizedText = "";
-  bool _isActive = true;
-  bool _isCaptureActive = false; // Prevent overlapping captures
-  int _frameSkipCounter = 0;
+class _TextModelPageState extends State<TextModelPage> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  String? detectedText;
+  bool isProcessing = false;
 
   @override
   void initState() {
     super.initState();
-    _initialize();
-  }
+    _animationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 1500),
+    );
 
-  Future<void> _initialize() async {
-    await _textService.loadModel();
-    await _checkCameraPermission();
-  }
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _animationController, curve: Curves.easeIn)
+    );
 
-  Future<void> _checkCameraPermission() async {
-    var status = await Permission.camera.request();
-    if (status.isGranted) {
-      _initCamera();
-    } else {
-      print("❌ Camera permission denied");
-    }
-  }
+    _animationController.forward();
 
-  Future<void> _initCamera() async {
-    _cameras = await availableCameras();
-    if (_cameras != null && _cameras!.isNotEmpty) {
-      _cameraController =
-          CameraController(_cameras![0], ResolutionPreset.medium);
-      try {
-        await _cameraController!.initialize();
-        if (!_isActive) return;
-        setState(() {
-          _isCameraInitialized = true;
-        });
-        print("DEBUG: Camera initialized in TextModelPage");
-        _startDetectionLoop();
-      } catch (e) {
-        print("❌ Error initializing camera in TextModelPage: $e");
-      }
-    }
-  }
-
-  void _startDetectionLoop() async {
-    if (!_isActive ||
-        !_cameraController!.value.isInitialized ||
-        _isDetecting) return;
-
-    // Frame skipping: process every third frame.
-    if (_frameSkipCounter < 2) {
-      _frameSkipCounter++;
-      Future.delayed(Duration(milliseconds: 500), () => _startDetectionLoop());
-      return;
-    } else {
-      _frameSkipCounter = 0;
-    }
-
-    if (_isCaptureActive) return;
-    _isDetecting = true;
-    _isCaptureActive = true;
-
-    try {
-      print("DEBUG: TextModelPage capture started");
-      final imageFile = await _cameraController!.takePicture();
-      print("DEBUG: TextModelPage capture ended");
-      _isCaptureActive = false;
-      await _textService.runModel(imageFile.path);
+    // Simulate text detection after a delay
+    Future.delayed(Duration(seconds: 2), () {
       setState(() {
-        _recognizedText = _textService.recognizedText;
+        isProcessing = true;
       });
-    } catch (e) {
-      print("❌ Error in text detection loop: $e");
-      _isCaptureActive = false;
-    } finally {
-      _isDetecting = false;
-      if (!_isActive) return;
-      Future.delayed(Duration(milliseconds: 500), () {
-        if (!_isActive) return;
-        _startDetectionLoop();
+
+      Future.delayed(Duration(seconds: 3), () {
+        setState(() {
+          detectedText = "Sample detected text. This feature would use OCR to read text from the camera.";
+          isProcessing = false;
+        });
       });
-    }
+    });
   }
 
   @override
   void dispose() {
-    _isActive = false;
-    _textService.stopSpeech();
-    _cameraController?.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text("Live Text Recognition"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'Text Recognition',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: GestureDetector(
-        onDoubleTap: () {
-          Navigator.pop(context);
-        },
-        child: _isCameraInitialized
-            ? Stack(
-          children: [
-            Positioned.fill(child: CameraPreview(_cameraController!)),
-            Positioned(
-              bottom: 20,
-              left: 20,
-              right: 20,
-              child: Container(
-                padding: EdgeInsets.all(12),
-                color: Colors.black54,
-                child: SingleChildScrollView(
-                  child: Text(
-                    _recognizedText,
-                    style: TextStyle(color: Colors.white, fontSize: 18),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black,
+              Color(0xFF1E1E1E),
+            ],
+          ),
+        ),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Camera placeholder (mockup)
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    margin: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.black38,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Theme.of(context).primaryColor,
+                        width: 2,
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: Icon(
+                            Icons.document_scanner,
+                            size: 100,
+                            color: Colors.white.withOpacity(0.3),
+                          ),
+                        ),
+                        if (isProcessing)
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 60,
+                                  height: 60,
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF8000)),
+                                    strokeWidth: 3,
+                                  ),
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'Processing text...',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // Scanning effect
+                        AnimatedBuilder(
+                          animation: _animationController,
+                          builder: (context, child) {
+                            return Positioned(
+                              left: 0,
+                              right: 0,
+                              top: _animationController.value * 300,
+                              child: Container(
+                                height: 2,
+                                color: Color(0xFFFF8000),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+
+                // Detected text area
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    margin: EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.text_fields,
+                              color: Color(0xFFFF8000),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Detected Text',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Text(
+                              detectedText ?? 'Point your camera at text to scan it',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Bottom controls
+                Container(
+                  padding: EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildControlButton(
+                        icon: Icons.camera,
+                        label: 'Capture',
+                        color: Color(0xFFFF8000),
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          setState(() {
+                            isProcessing = true;
+                            detectedText = null;
+
+                            // Reset scanning animation
+                            _animationController.reset();
+                            _animationController.forward();
+
+                            // Simulate text detection
+                            Future.delayed(Duration(seconds: 2), () {
+                              setState(() {
+                                detectedText = "New captured text sample. In a real app, this would be text recognized from the camera.";
+                                isProcessing = false;
+                              });
+                            });
+                          });
+                        },
+                      ),
+                      _buildControlButton(
+                        icon: Icons.volume_up,
+                        label: 'Speak',
+                        color: Theme.of(context).primaryColor,
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Reading text aloud...'),
+                              backgroundColor: Theme.of(context).primaryColor,
+                            ),
+                          );
+                        },
+                      ),
+                      _buildControlButton(
+                        icon: Icons.copy,
+                        label: 'Copy',
+                        color: Colors.purple,
+                        onTap: () {
+                          if (detectedText != null) {
+                            HapticFeedback.mediumImpact();
+                            Clipboard.setData(ClipboardData(text: detectedText!));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Text copied to clipboard'),
+                                backgroundColor: Colors.purple,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        )
-            : Center(child: CircularProgressIndicator()),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControlButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 30,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,215 +1,463 @@
-// lib/homepage.dart
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:vibration/vibration.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:image/image.dart' as img;
-import 'bounding_box_painter.dart';
-import 'yolo_service.dart';
-import 'dart:async';
+import 'package:flutter/services.dart';
 
 class Homepage extends StatefulWidget {
   @override
   _HomepageState createState() => _HomepageState();
 }
 
-class _HomepageState extends State<Homepage> with WidgetsBindingObserver {
+class _HomepageState extends State<Homepage>
+    with SingleTickerProviderStateMixin {
   CameraController? _cameraController;
   List<CameraDescription>? _cameras;
-  final YoloService _yoloService = YoloService();
-  bool _isCameraInitialized = false;
-  List<Map<String, dynamic>> _detections = [];
-  bool _isDetecting = false;
-  bool _isPaused = false; // Pause detection when switching modes
-  bool _isCaptureActive = false; // Prevent overlapping picture captures
+  int _currentCameraIndex = 0;
 
-  final List<String> modes = [
-    'Object Detection',
-    'Object Search',
-    'Text Recognition'
+  final List<Map<String, dynamic>> modes = [
+    {
+      'name': 'Object Detection',
+      'icon': Icons.remove_red_eye_outlined,
+      'color': Color(0xFF0080FF),
+      'route': '/home'
+    },
+    {
+      'name': 'Object Search',
+      'icon': Icons.search,
+      'color': Color(0xFF00C853),
+      'route': '/home'
+    },
+    {
+      'name': 'Text Recognition',
+      'icon': Icons.description_outlined,
+      'color': Color(0xFFFF8000),
+      'route': '/textModel'
+    }
   ];
+
   int currentModeIndex = 0;
+  bool showHelp = false;
+  late AnimationController _animationController;
+  late Animation<double> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _checkCameraPermission();
-    _yoloService.loadModel();
+    _initCamera();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 300),
+    );
+    _slideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    // Force landscape orientation
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _disposeCameraController();
+    // Reset orientation when leaving the page
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    _cameraController?.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
-  Future<void> _disposeCameraController() async {
-    if (_cameraController != null) {
-      print("DEBUG: Disposing old camera controller");
-      await _cameraController!.dispose();
-      _cameraController = null;
-    }
-  }
-
-  // Lifecycle observer: reinitialize camera on resume.
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
-    if (state == AppLifecycleState.paused) {
-      print("DEBUG: App paused, disposing camera controller");
-      _disposeCameraController();
-    } else if (state == AppLifecycleState.resumed) {
-      print("DEBUG: App resumed, reinitializing camera");
-      _initCamera();
-    }
-  }
-
-  Future<void> _checkCameraPermission() async {
-    var status = await Permission.camera.request();
-    if (status.isGranted) {
-      _initCamera();
-    } else {
-      print("❌ Camera permission denied");
-    }
-  }
-
   Future<void> _initCamera() async {
-    // Dispose any existing controller to ensure fresh reinitialization.
-    await _disposeCameraController();
     _cameras = await availableCameras();
     if (_cameras != null && _cameras!.isNotEmpty) {
-      _cameraController =
-          CameraController(_cameras![0], ResolutionPreset.high);
-      try {
-        await _cameraController!.initialize();
-        // Disable flash and lock focus.
-        await _cameraController!.setFlashMode(FlashMode.off);
-        try {
-          await _cameraController!.setFocusMode(FocusMode.locked);
-        } catch (e) {
-          print("Focus lock failed: $e");
-        }
-        setState(() {
-          _isCameraInitialized = true;
-        });
-        print("DEBUG: Camera reinitialized in Homepage");
-        if (!_isPaused) _startDetectionLoop();
-      } catch (e) {
-        print("❌ Error initializing camera: $e");
-      }
-    }
-  }
-
-  void _startDetectionLoop() async {
-    if (!_isCameraInitialized || _isDetecting || _isPaused) return;
-    if (_isCaptureActive) {
-      print("DEBUG: Capture already active, skipping this loop");
-      return;
-    }
-    print("DEBUG: Starting detection loop in Homepage");
-    _isDetecting = true;
-    _isCaptureActive = true;
-
-    try {
-      print("DEBUG: Capture started");
-      final imageFile = await _cameraController!.takePicture();
-      print("DEBUG: Capture ended");
-      _isCaptureActive = false;
-      final bytes = await imageFile.readAsBytes();
-      img.Image? capturedImage = img.decodeImage(bytes);
-      if (capturedImage != null) {
-        Stopwatch modelStopwatch = Stopwatch()..start();
-        List<Map<String, dynamic>> results =
-        await _yoloService.runModel(capturedImage);
-        modelStopwatch.stop();
-        print("DEBUG: Model inference took: ${modelStopwatch.elapsedMilliseconds} ms");
-        setState(() {
-          _detections = results;
-        });
-      }
-    } catch (e) {
-      print("Error in detection loop: $e");
-      _isCaptureActive = false;
-    } finally {
-      _isDetecting = false;
-      if (!_isPaused) {
-        Future.delayed(Duration(milliseconds: 500), () {
-          if (!_isPaused) _startDetectionLoop();
-        });
+      _cameraController = CameraController(
+        _cameras![_currentCameraIndex],
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+      await _cameraController!.initialize();
+      if (mounted) {
+        setState(() {});
       }
     }
   }
 
   void _switchMode() {
-    Vibration.vibrate(duration: 100);
+    HapticFeedback.mediumImpact();
     setState(() {
       currentModeIndex = (currentModeIndex + 1) % modes.length;
     });
-    print("DEBUG: Switching mode to ${modes[currentModeIndex]}");
-    if (modes[currentModeIndex] != 'Object Detection') {
-      // Pause the object detection loop.
-      _isPaused = true;
-      print("DEBUG: Detection loop paused in Homepage");
-      // If switching to Text Recognition, navigate to that page.
-      if (modes[currentModeIndex] == 'Text Recognition') {
-        Navigator.pushNamed(context, '/textModel').then((_) {
-          // On return, force reinitialize the camera.
-          _isPaused = false;
-          print("DEBUG: Resuming detection loop in Homepage");
-          _disposeCameraController().then((_) {
-            _initCamera();
-          });
-        });
-      }
-      // (Handle 'Object Search' similarly if needed.)
+    if (modes[currentModeIndex]['route'] != '/home' &&
+        modes[currentModeIndex]['route'] != null) {
+      Navigator.pushNamed(context, modes[currentModeIndex]['route']);
+    }
+  }
+
+  void _toggleHelp() {
+    setState(() {
+      showHelp = !showHelp;
+    });
+    if (showHelp) {
+      _animationController.forward();
     } else {
-      // If switching back to Object Detection, force reinitialize the camera.
-      _isPaused = false;
-      print("DEBUG: Resuming detection loop in Homepage");
-      _disposeCameraController().then((_) {
-        _initCamera();
-      });
+      _animationController.reverse();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Speak Sight')),
-      body: _isCameraInitialized
-          ? Stack(
-        children: [
-          Positioned.fill(child: CameraPreview(_cameraController!)),
-          Positioned.fill(
-            child: CustomPaint(painter: BoundingBoxPainter(_detections)),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'Speak Sight',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
           ),
-          Positioned(
-            bottom: 30,
-            left: 0,
-            right: 0,
-            child: Column(
-              children: [
-                Text(
-                  'Current Mode: ${modes[currentModeIndex]}',
-                  style: TextStyle(
-                    fontSize: 22,
-                    color: Colors.white,
-                    shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => Vibration.vibrate(duration: 50),
-                  onDoubleTap: _switchMode,
-                  child: Icon(Icons.touch_app, size: 50, color: Colors.white),
-                ),
-              ],
-            ),
+        ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.help_outline),
+            onPressed: _toggleHelp,
           ),
         ],
-      )
-          : Center(child: CircularProgressIndicator()),
+      ),
+      body: _cameraController == null || !_cameraController!.value.isInitialized
+          ? _buildLoadingScreen()
+          : _buildCameraView(),
+    );
+  }
+
+  Widget _buildLoadingScreen() {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 60,
+              height: 60,
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).primaryColor),
+                strokeWidth: 3,
+              ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Starting camera...',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCameraView() {
+    return GestureDetector(
+      onDoubleTap: _switchMode,
+      onTap: () => HapticFeedback.selectionClick(),
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity != null) {
+          if (details.primaryVelocity! < 0) {
+            // Swipe left
+            if (!showHelp) _toggleHelp();
+          } else if (details.primaryVelocity! > 0) {
+            // Swipe right
+            if (showHelp) _toggleHelp();
+          }
+        }
+      },
+      child: Stack(
+        children: [
+          // Camera preview
+          Container(
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.height,
+            child: CameraPreview(_cameraController!),
+          ),
+          // Mode indicator
+          Positioned(
+            top: 100,
+            right: 16,
+            child: Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: List.generate(
+                  modes.length,
+                      (index) => _buildModeIndicator(index),
+                ),
+              ),
+            ),
+          ),
+          // Right control panel (instead of bottom in portrait)
+          Positioned(
+            top: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: 120,
+              padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  bottomLeft: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildModeButton(0),
+                  SizedBox(height: 16),
+                  _buildModeButton(1),
+                  SizedBox(height: 16),
+                  _buildModeButton(2),
+                  SizedBox(height: 24),
+                  RotatedBox(
+                    quarterTurns: 3,
+                    child: Text(
+                      'Current Mode: ${modes[currentModeIndex]['name']}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: modes[currentModeIndex]['color'],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Double-tap\nto switch',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Help overlay
+          if (showHelp)
+            AnimatedBuilder(
+              animation: _animationController,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(
+                      MediaQuery.of(context).size.width * _slideAnimation.value,
+                      0),
+                  child: child,
+                );
+              },
+              child: Container(
+                color: Colors.black.withOpacity(0.9),
+                width: double.infinity,
+                height: double.infinity,
+                padding: EdgeInsets.all(24),
+                child: SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'How to use Speak Sight',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 30),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Expanded(
+                            child: _buildInstructionItem(
+                              context,
+                              Icons.touch_app,
+                              'Double-tap anywhere on the screen to switch between modes',
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: _buildInstructionItem(
+                              context,
+                              Icons.swipe,
+                              'Swipe left to show this help screen, swipe right to close it',
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: _buildInstructionItem(
+                              context,
+                              Icons.mic,
+                              'The app will speak out loud what it detects through your camera',
+                            ),
+                          ),
+                        ],
+                      ),
+                      Spacer(),
+                      GestureDetector(
+                        onTap: _toggleHelp,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 40),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor,
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: Text(
+                            'Got It',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeIndicator(int index) {
+    bool isActive = index == currentModeIndex;
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 4),
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: isActive ? modes[index]['color'] : Colors.black38,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isActive ? Colors.white : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: Icon(
+        modes[index]['icon'],
+        color: Colors.white,
+        size: 20,
+      ),
+    );
+  }
+
+  Widget _buildModeButton(int index) {
+    bool isActive = index == currentModeIndex;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          currentModeIndex = index;
+        });
+        if (modes[index]['route'] != '/home') {
+          Navigator.pushNamed(context, modes[index]['route']);
+        }
+      },
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 200),
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: isActive ? modes[index]['color'] : Colors.black38,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? Colors.white : Colors.transparent,
+            width: 2,
+          ),
+          boxShadow: isActive
+              ? [
+            BoxShadow(
+              color: modes[index]['color'].withOpacity(0.5),
+              blurRadius: 10,
+              spreadRadius: 1,
+            )
+          ]
+              : [],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              modes[index]['icon'],
+              color: Colors.white,
+              size: 32,
+            ),
+            SizedBox(height: 8),
+            Text(
+              index == 0
+                  ? 'Object'
+                  : index == 1
+                  ? 'Search'
+                  : 'Text',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstructionItem(
+      BuildContext context, IconData icon, String text) {
+    return Column(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Icon(
+            icon,
+            color: Theme.of(context).primaryColor,
+            size: 24,
+          ),
+        ),
+        SizedBox(height: 12),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white,
+          ),
+        ),
+      ],
     );
   }
 }
