@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
 import 'package:image/image.dart' as img;
 import 'dart:typed_data';
@@ -21,7 +22,7 @@ class YoloService {
 
   List<String> _labels = [];
   static const _inputSize = 320;
-  static const _confidenceThreshold = 0.2;
+  static const _confidenceThreshold = 0.45;
   static const _nmsThreshold = 0.5;
   static const _gridSize = 50; 
 
@@ -29,6 +30,7 @@ class YoloService {
 
   late int dx;
   late int dy;
+  late double scale;
 
 
   img.Image _resizedImage(img.Image image) {
@@ -36,7 +38,7 @@ class YoloService {
     final originalHeight = image.height;
 
     // calculating ratio
-    final scale = min(_inputSize / originalWidth, _inputSize / originalHeight);
+    scale = min(_inputSize / originalWidth, _inputSize / originalHeight);
     final newWidth = (originalWidth * scale).toInt();
     final newHeight = (originalHeight * scale).toInt();
 
@@ -153,6 +155,11 @@ class YoloService {
         double boxHeight = detection[3];
 
         // print("🔍 Raw bounding box: cx=$cx, cy=$cy, width=$boxWidth, height=$boxHeight");
+        double denormalized_cx = (cx*_inputSize-dx)/scale;
+        double denormalized_cy = (cy*_inputSize-dy)/scale;
+        double denormalized_boxWidth = boxWidth*_inputSize/scale;
+        double denormalized_boxHeight = boxHeight*_inputSize/scale;
+        // print("1️⃣ Denormalized bounding box: cx=$denormalized_cx, cy=$denormalized_cy, width=$denormalized_boxWidth, height=$denormalized_boxHeight");
 
         // Next 80 values: class scores.
         List<double> classScores = detection.sublist(4);
@@ -171,10 +178,10 @@ class YoloService {
         if (maxScore >= _confidenceThreshold) {
           String label = (classIndex < _labels.length) ? _labels[classIndex] : "Unknown";
           detections.add({
-            'x': cx,
-            'y': cy,
-            'width': boxWidth,
-            'height': boxHeight,
+            'x': denormalized_cx,
+            'y': denormalized_cy,
+            'width': denormalized_boxWidth,
+            'height': denormalized_boxHeight,
             'label': label,
             'confidence': maxScore,
           });
@@ -182,9 +189,9 @@ class YoloService {
         }
       }
 
-      print("<detections> Before NMS: $detections");
+      // print("❌<detections> Before NMS: $detections");
       detections = _applyNMS(detections);
-      print("<detections> After NMS: $detections");
+      print("✅<detections> After NMS: $detections");
 
 
     } catch (e) {
@@ -207,49 +214,6 @@ class YoloService {
 
   }
 
-
-
-
-/*
-  // Apply non-maximum suppression to the list of detections.
-  List<Map<String, dynamic>> _applyNMS(List<Map<String, dynamic>> detections) {
-    detections.sort((a, b) => b['confidence'].compareTo(a['confidence']));
-
-    final List<Map<String, dynamic>> filtered = [];
-    while (detections.isNotEmpty) {
-      final current = detections.removeAt(0);
-      filtered.add(current);
-
-      double threshold = 0.5; // make this extremely large to deactivate IoU
-      detections.removeWhere((det) => _calculateIoU(current, det) > threshold);
-    }
-    return filtered;
-  }
-  //️ fix the boundingbox overlap problem.
-  double _calculateIoU(Map<String, dynamic> a, Map<String, dynamic> b) {
-    final aLeft = a['x'] - a['width'] / 2;
-    final aTop = a['y'] - a['height'] / 2;
-    final aRight = aLeft + a['width'];
-    final aBottom = aTop + a['height'];
-
-    final bLeft = b['x'] - b['width'] / 2;
-    final bTop = b['y'] - b['height'] / 2;
-    final bRight = bLeft + b['width'];
-    final bBottom = bTop + b['height'];
-
-    final interLeft = max(aLeft, bLeft);
-    final interTop = max(aTop, bTop);
-    final interRight = min(aRight, bRight);
-    final interBottom = min(aBottom, bBottom);
-
-    if (interRight <= interLeft || interBottom <= interTop) return 0.0;
-
-    final intersection = (interRight - interLeft) * (interBottom - interTop);
-    final union = a['width']*a['height'] + b['width']*b['height'] - intersection;
-
-    return intersection / union;
-  }
-*/
   List<Map<String, dynamic>> _applyNMS(List<Map<String, dynamic>> detections) {
     // sort detections by confidence
     detections.sort((a, b) => b['confidence'].compareTo(a['confidence']));

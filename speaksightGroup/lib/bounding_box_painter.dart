@@ -19,11 +19,12 @@ class BoundingBoxPainter extends CustomPainter {
       double width = detection['width'];
       double height = detection['height'];
       String label = detection['label'];
+      // print("2️⃣boundingbox ${x*size.width}, ${y*size.height}, ${width*size.width}, ${height*size.height}");
 
       final rect = Rect.fromCenter(
-        center: Offset(x * size.width, y * size.height),
-        width: width * size.width,
-        height: height * size.height,
+        center: Offset(x, y),
+        width: width,
+        height: height,
       );
       canvas.drawRect(rect, paint);
 

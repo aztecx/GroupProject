@@ -30,8 +30,12 @@ class TtsService{
     // await _flutterTts.pause();
     await _flutterTts.pause();
   }
+  Future<void> setSpeed(double speed) async {
+    await _flutterTts.setSpeechRate(speed);
+    print("✅TTS speed set to $speed");
+  }
 
-  Future<void> stop()async{
+  Future<void> stop() async {
     // await _flutterTts.pause();
     await _flutterTts.stop();
     print("✅TTS is stop");
