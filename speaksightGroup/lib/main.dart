@@ -3,6 +3,7 @@ import 'menu.dart';
 import 'homepage.dart';
 import 'text_model.dart';
 import 'settings.dart';
+import 'test_model.dart';
 import 'package:speaksightgroup/yolo_service.dart';
 
 
@@ -31,6 +32,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => Homepage(),
         '/textModel': (context) => TextModelPage(),
         '/settings': (context) => SettingsPage(),
+        '/testText': (context) => TestTextPage(),
       },
     );
   }
