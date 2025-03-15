@@ -14,10 +14,10 @@ class BoundingBoxPainter extends CustomPainter {
       ..color = Colors.greenAccent;
 
     detections.forEach((detection) {
-      double x = detection['x'];
-      double y = detection['y'];
-      double width = detection['width'];
-      double height = detection['height'];
+      double x = detection['x']*size.width;
+      double y = detection['y']*size.height;
+      double width = detection['width']*size.width;
+      double height = detection['height']*size.height;
       String label = detection['label'];
       // print("2️⃣boundingbox ${x*size.width}, ${y*size.height}, ${width*size.width}, ${height*size.height}");
 

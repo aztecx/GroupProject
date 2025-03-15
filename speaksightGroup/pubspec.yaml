@@ -41,6 +41,8 @@ dependencies:
   image_picker: ^1.0.7
   path_provider: ^2.1.5
   speech_to_text: ^7.0.0
+  yuv_converter: ^0.0.2
+  # tflite: 1.1.2
 
 
 

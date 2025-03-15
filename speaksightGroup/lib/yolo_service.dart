@@ -155,10 +155,10 @@ class YoloService {
         double boxHeight = detection[3];
 
         // print("🔍 Raw bounding box: cx=$cx, cy=$cy, width=$boxWidth, height=$boxHeight");
-        double denormalized_cx = (cx*_inputSize-dx)/scale;
-        double denormalized_cy = (cy*_inputSize-dy)/scale;
-        double denormalized_boxWidth = boxWidth*_inputSize/scale;
-        double denormalized_boxHeight = boxHeight*_inputSize/scale;
+        double denormalizedCx = (cx*_inputSize-dx)/scale;
+        double denormalizedCy = (cy*_inputSize-dy)/scale;
+        double denormalizedBoxwidth = boxWidth*_inputSize/scale;
+        double denormalizedBoxheight = boxHeight*_inputSize/scale;
         // print("1️⃣ Denormalized bounding box: cx=$denormalized_cx, cy=$denormalized_cy, width=$denormalized_boxWidth, height=$denormalized_boxHeight");
 
         // Next 80 values: class scores.
@@ -178,12 +178,16 @@ class YoloService {
         if (maxScore >= _confidenceThreshold) {
           String label = (classIndex < _labels.length) ? _labels[classIndex] : "Unknown";
           detections.add({
-            'x': denormalized_cx,
-            'y': denormalized_cy,
-            'width': denormalized_boxWidth,
-            'height': denormalized_boxHeight,
+            'x': cx,
+            'y': cy,
+            'width': boxWidth,
+            'height': boxHeight,
             'label': label,
             'confidence': maxScore,
+            'denormalizedX': denormalizedCx,
+            'denormalizedY': denormalizedCy,
+            // 'denormalizedWidth': denormalizedBoxwidth,
+            // 'denormalizedHeight': denormalizedBoxheight,
           });
           // print("🎯 Detected: $label with confidence $maxScore");
         }

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_tts/flutter_tts.dart';
 
 class TtsService{
@@ -20,12 +22,13 @@ class TtsService{
     }
 
   }
+
   Future<void> speakText(String text)async{
     if (text!='') {
       await _flutterTts.speak(text);
     }
   }
-
+  
   Future<void> pause()async{
     // await _flutterTts.pause();
     await _flutterTts.pause();

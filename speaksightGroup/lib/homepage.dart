@@ -7,11 +7,13 @@ import 'package:speaksightgroup/stt_service.dart';
 import 'package:vibration/vibration.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
+import 'package:yuv_converter/yuv_converter.dart';
 import 'bounding_box_painter.dart';
 import 'yolo_service.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:io';
+
 
 
 
@@ -108,6 +110,8 @@ class _HomepageState extends State<Homepage> {
   final int _frameLimit = 15; // ⚠️frame rate control
 
   void _startDetectionLoop() async {
+    
+
     // check if the camera is initialized
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
@@ -115,9 +119,10 @@ class _HomepageState extends State<Homepage> {
 
     // Start the image stream
     await _cameraController!.startImageStream((CameraImage image) async {
+      
       if(_isListening){
-        return;
-      }
+            return;
+          }
 
       _frameCount = (_frameCount + 1) % _frameLimit;
       if (_frameCount % _frameLimit != 0) {
@@ -171,8 +176,9 @@ class _HomepageState extends State<Homepage> {
               // timers['lastSpeak']?.reset();
             // }
           } else if (modes[currentModeIndex] == 'Object Search') {
+            
             final thisResults = await _yoloService.runModel(convertedImage);
-            _tts.setSpeed(0.52);
+            _tts.setSpeed(0.54);
             setState(() => _detectedObjects = thisResults);
             final found = thisResults.where((obj) {
               final label = (obj['label'] as String).toLowerCase();
@@ -182,14 +188,13 @@ class _HomepageState extends State<Homepage> {
             if (found.isNotEmpty) {
               final targetObj = found.first;
 
-              final double xCenter = targetObj['x'];
-              final double yCenter = targetObj['y'];
-
+              final double xCenter = targetObj['denormalizedX'];
+              final double yCenter = targetObj['denormalizedY'];
               final screenWidth = MediaQuery.of(context).size.width;
               final screenHeight = MediaQuery.of(context).size.height;
-
               final double halfW = screenWidth / 2;
               final double halfH = screenHeight / 2;
+              
               String quadrant;
               if (xCenter < halfW && yCenter < halfH) {
                 quadrant = "top-left";
@@ -228,15 +233,10 @@ class _HomepageState extends State<Homepage> {
       // final int height = image.height;
 
       if (isAndroid) {
-        if (image.format.raw == 17 && image.planes.length == 2) {
-          // 说明是 NV21
-          print("⚠️NV21");
-          return _convertNV21ToImage(image);
-        } else {
-          print("⚠️YUV420");
-          return _convertYUV420ToImage(image);
-        }
-
+        print("⚠️Android Camera Image");
+        _checkCameraFormat(image);
+        _checkUVOrder(image);
+        return _convertYUV420ToImage(image);
       } else if (isIOS) {
         print("⚠️iOS Camera Image");
         return _convertBGRA8888ToImage(image);
@@ -256,6 +256,13 @@ class _HomepageState extends State<Homepage> {
    * For Android Camera
    * Adapted from: https://gist.github.com/Alby-o/fe87e35bc21d534c8220aed7df028e03
    * Author: @ Alby-o
+   * 
+   * The memory leakage issue on android is caused by this function.
+   * Every time the function is called, a new img.Image object is created. 
+   * Because this function converts every pixel within the img.Image into RGB format, the resulting img.Image occupies a significant amount of memory.
+   * Moreover, new img.Image objects are created faster than the previous ones can be disposed, which causes memory leakage.
+   * Unlike <_convertBGRA8888ToImage> for iOS, there is no in-built function to implement the conversion for android.
+   * The current solution is to limit how frequently this function is called: it is now called once every 15 frames.
    */
   img.Image _convertYUV420ToImage(CameraImage cameraImage) {
     final imageWidth = cameraImage.width;
@@ -264,7 +271,7 @@ class _HomepageState extends State<Homepage> {
     if (convertedImage == null ||
         convertedImage!.width != imageWidth ||
         convertedImage!.height != imageHeight) {
-      convertedImage = img.Image(width: imageWidth, height: imageHeight);
+          convertedImage = img.Image(width: imageWidth, height: imageHeight);
     }
 
     final yBuffer = cameraImage.planes[0].bytes;
@@ -276,8 +283,6 @@ class _HomepageState extends State<Homepage> {
 
     final int uvRowStride = cameraImage.planes[1].bytesPerRow;
     final int uvPixelStride = cameraImage.planes[1].bytesPerPixel!;
-
-    final image = img.Image(width: imageWidth, height: imageHeight);
 
     for (int h = 0; h < imageHeight; h++) {
       int uvh = (h / 2).floor();
@@ -312,60 +317,61 @@ class _HomepageState extends State<Homepage> {
         convertedImage!.setPixelRgb(w, h, r, g, b);
       }
     }
-    return convertedImage!;
+    return img.copyRotate(convertedImage!, angle: 90);
   }
 
-  /*
-  * Another kind of Android Camera
-  * AI generated
-  */
-  img.Image? _convertNV21ToImage(CameraImage image) {
-    final width = image.width;
-    final height = image.height;
+  // void _checkUVOrder(CameraImage cameraImage) {
 
-    final planeY = image.planes[0];
-    final planeVU = image.planes[1];
+  //   print("🔍 检查UV排列顺序:");
+  //   print("U平面前10个字节: ${cameraImage.planes[1].bytes.sublist(0, 10)}");
+  //   print("V平面前10个字节: ${cameraImage.planes[2].bytes.sublist(0, 10)}");
+    
+  //   int sampleSize = 20;
+  //   List<int> uvSamples = [];
+  //   for (int i = 0; i < sampleSize; i += 2) {
+  //     if (i < cameraImage.planes[1].bytes.length && i < cameraImage.planes[2].bytes.length) {
+  //       uvSamples.add(cameraImage.planes[2].bytes[i]);
+  //       uvSamples.add(cameraImage.planes[1].bytes[i]);
+  //     }
+  //   }
+  //   print("交错采样结果: $uvSamples");
+    
+  //   // 可以比较NV21的预期输出格式(先V后U)与实际转换结果
+  //   print("检查U/V平面的平均值差异:");
+  //   double uAvg = cameraImage.planes[1].bytes.reduce((a, b) => a + b) / cameraImage.planes[1].bytes.length;
+  //   double vAvg = cameraImage.planes[2].bytes.reduce((a, b) => a + b) / cameraImage.planes[2].bytes.length;
+  //   print("U平面平均值: $uAvg");
+  //   print("V平面平均值: $vAvg");
+  // }
 
-    final yBytes = planeY.bytes;
-    final vuBytes = planeVU.bytes;
-
-    final neededLength = width * height * 4;
-    Uint8List rgbaBuffer = Uint8List(neededLength);
-
-    int index = 0;
-    for (int y = 0; y < height; y++) {
-      final yRowStart = y * planeY.bytesPerRow;
-      final uvRowStart = (y >> 1) * planeVU.bytesPerRow;
-
-      for (int x = 0; x < width; x++) {
-        // 取 Y
-        final yValue = yBytes[yRowStart + x];
-
-        final uvIndex = uvRowStart + (x >> 1) * 2;
-        final vValue = vuBytes[uvIndex + 0];
-        final uValue = vuBytes[uvIndex + 1];
-
-        final r = (yValue + 1.402 * (vValue - 128)).clamp(0, 255).toInt();
-        final g = (yValue - 0.344136 * (uValue - 128)
-            - 0.714136 * (vValue - 128)).clamp(0, 255).toInt();
-        final b = (yValue + 1.772 * (uValue - 128)).clamp(0, 255).toInt();
-
-        rgbaBuffer[index++] = r;
-        rgbaBuffer[index++] = g;
-        rgbaBuffer[index++] = b;
-        rgbaBuffer[index++] = 255;
-      }
-    }
-
-    final convertedImage = img.Image.fromBytes(
-      width: width,
-      height: height,
-      bytes: rgbaBuffer.buffer,
-      order: img.ChannelOrder.rgba,
-    );
-
-    return convertedImage;
-  }
+  // Future<img.Image?> _checkCameraFormat(CameraImage cameraImage) async {
+  //   try {
+  //     // 👉 诊断代码：输出相机格式信息
+  //     print("📊 相机格式信息：");
+  //     print("- 平面数量: ${cameraImage.planes.length}");
+  //     print("- Y平面宽度: ${cameraImage.width}, 高度: ${cameraImage.height}");
+  //     for (int i = 0; i < cameraImage.planes.length; i++) {
+  //       print("- 平面[$i] 字节数: ${cameraImage.planes[i].bytes.length}");
+  //       print("- 平面[$i] 每行字节: ${cameraImage.planes[i].bytesPerRow}");
+  //       print("- 平面[$i] 每像素字节: ${cameraImage.planes[i].bytesPerPixel}");
+  //     }
+      
+  //     // 💡 基于诊断信息选择转换方法
+  //     if (cameraImage.format.group == ImageFormatGroup.yuv420) {
+  //       // 🔍 创建 NV21 格式的数据
+  //       print("Camera Format: ${cameraImage.format.group}");
+  //     } else if (cameraImage.format.group == ImageFormatGroup.nv21) {
+  //       print("Camera Format: ${cameraImage.format.group}");
+  //       // 直接使用 NV21 处理
+  //     } else {
+  //       print("⚠️ 未知的相机格式: ${cameraImage.format.group}");
+  //       // 回退到默认处理
+  //     }
+  //   } catch (e) {
+  //     print("❌ YUV420转换错误: $e");
+  //     return null;
+  //   }
+  // }
 
   // For Camera on iOS
   img.Image _convertBGRA8888ToImage(CameraImage image) {
@@ -378,6 +384,7 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
+  // Get the top 3 frequency of detected objects
   String? _getTopFrequency(List<List<String>> recentDetections) {
     if (recentDetections.isEmpty) return null;
 
@@ -395,7 +402,7 @@ class _HomepageState extends State<Homepage> {
     return result;
   }
 
-  void _switchMode (bool _nextMode, bool _previousMode) async{
+  void _switchMode (bool nextMode, bool previousMode) async{
     Vibration.vibrate(duration: 100);
     // Switch mode
     // _tts = ttsService();
@@ -403,9 +410,9 @@ class _HomepageState extends State<Homepage> {
 
 
     setState(() {
-      if (_nextMode) {
+      if (nextMode) {
         currentModeIndex = (currentModeIndex + 1) % modes.length; // next mode
-      } else if (_previousMode) {
+      } else if (previousMode) {
         currentModeIndex = (currentModeIndex - 1 + modes.length) % modes.length; //previous mode
       }
       _detectedObjects.clear();
@@ -453,67 +460,72 @@ class _HomepageState extends State<Homepage> {
               _hasSwipedLeft = false;
               _hasSwipedRight = false;
             },
+        
             
-              onLongPressStart: (modes[currentModeIndex] == 'Object Search')? (_) async{ 
-                _tts.switchMode();
-                _tts.speakText("Listening");
-                
-                await Future.delayed(const Duration(milliseconds:600));
-                Vibration.vibrate(duration: 100);
-                setState(() {
-                  _isListening = true;
+            onLongPressStart: (modes[currentModeIndex] == 'Object Search')? (_) async{ 
+              _tts.stop();
+              _tts.speakText("Listening");
+              
+              await Future.delayed(const Duration(milliseconds:500));
+              Vibration.vibrate(duration: 100);
+              setState(() {
+                _isListening = true;
+              });
+              _stt.startListening();
+            }:null,
+
+            onLongPressEnd: (modes[currentModeIndex] == 'Object Search')? (_) async {
+              String searchTarget = await _stt.stopListening();
+              setState(() {
+                _searchTarget = searchTarget;
+                _isListening = false;
                 });
-                _stt.startListening();
-              }:null,
+              if(searchTarget.isNotEmpty){
+                print("🔍 Searching for $searchTarget");
+                _tts.speakText('Searching for $searchTarget');
+                }
+                else{
+                  print("❌ No search target received");
+                }
+            }:null,
 
-              onLongPressEnd: (modes[currentModeIndex] == 'Object Search')? (_) async {
-                String searchTarget = await _stt.stopListening();
-                setState(() {
-                  _searchTarget = searchTarget;
-                  _isListening = false;
-                  });
-                if(searchTarget.isNotEmpty){
-                  print("🔍 Searching for $searchTarget");
-                  _tts.speakText('Searching for $searchTarget');
-                  }
-              }:null,
-
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: CameraPreview(_cameraController!),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CameraPreview(_cameraController!),
+                ),
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: BoundingBoxPainter(_detectedObjects),
                   ),
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: BoundingBoxPainter(_detectedObjects),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 30,
-                    left: 0,
-                    right: 0,
-                    child: Column(
-                      children: [
-                        Text(
-                          'Current Mode: ${modes[currentModeIndex]}',
-                          style: TextStyle(
-                            fontSize: 22,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(color: Colors.black, blurRadius: 4)
-                            ],
-                          ),
+                ),
+                Positioned(
+                  bottom: 30,
+                  left: 0,
+                  right: 0,
+                  child: Column(
+                    children: [
+                      Text(
+                        'Current Mode: ${modes[currentModeIndex]}',
+                        style: TextStyle(
+                          fontSize: 22,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 4)
+                          ],
                         ),
-                        // You can still keep an icon if you want a visual cue.
-                        Icon(Icons.touch_app, size: 50, color: Colors.white),
-                      ],
-                    ),
+                      ),
+                      // You can still keep an icon if you want a visual cue.
+                      Icon(Icons.touch_app, size: 50, color: Colors.white),
+                    ],
                   ),
-                ],
-              ),
-            )
-          : Center(child: CircularProgressIndicator()),
-    );
+                ),
+              ],
+            ),
+          )
+        : Center(child: CircularProgressIndicator()),
+        );
+  }
 }
 
-}
+

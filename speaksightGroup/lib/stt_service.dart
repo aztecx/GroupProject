@@ -22,9 +22,20 @@ class SttService {
   }
 
   Future<String> stopListening() async {
-    await _speechToText.stop();
-    _isListening = false;
-    return _lastWords;
+    if (_speechToText.isListening) {
+      try {
+        await _speechToText.stop();
+        await Future.delayed(const Duration(milliseconds: 200));
+        _isListening = false;
+        return _lastWords;
+      } catch (e) {
+        print('Error stopping speech recognition: $e');
+        return '';
+      }
+    } else {
+      _isListening = false;
+      return _lastWords;
+    }
   }
 
   void _onSpeechResult(SpeechRecognitionResult result) {
