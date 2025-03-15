@@ -49,7 +49,6 @@ class _HomepageState extends State<Homepage> {
   List<Map<String, dynamic>> _detectedObjects = [];
   List<List<String>> _recentDetections = []; // last n frames
   String _recognizedText = '';
-  String _finalText = '';
   String _searchTarget = '';
 
   bool _isProcessing=false; // ⚠️防止并发处理
@@ -234,8 +233,8 @@ class _HomepageState extends State<Homepage> {
 
       if (isAndroid) {
         print("⚠️Android Camera Image");
-        _checkCameraFormat(image);
-        _checkUVOrder(image);
+        // _checkCameraFormat(image);
+        // _checkUVOrder(image);
         return _convertYUV420ToImage(image);
       } else if (isIOS) {
         print("⚠️iOS Camera Image");
@@ -462,7 +461,7 @@ class _HomepageState extends State<Homepage> {
             },
         
             
-            onLongPressStart: (modes[currentModeIndex] == 'Object Search')? (_) async{ 
+            onLongPressStart: (_) async{ 
               _tts.stop();
               _tts.speakText("Listening");
               
@@ -472,22 +471,37 @@ class _HomepageState extends State<Homepage> {
                 _isListening = true;
               });
               _stt.startListening();
-            }:null,
+            },
 
-            onLongPressEnd: (modes[currentModeIndex] == 'Object Search')? (_) async {
-              String searchTarget = await _stt.stopListening();
-              setState(() {
-                _searchTarget = searchTarget;
-                _isListening = false;
-                });
-              if(searchTarget.isNotEmpty){
-                print("🔍 Searching for $searchTarget");
-                _tts.speakText('Searching for $searchTarget');
-                }
-                else{
+            /// TODO: fixed the voice control for switching mode here
+            /// Currently not working properly
+            onLongPressEnd: (_) async {
+              String recognisedText = await _stt.stopListening();
+              print("🎤 Recognised Text: $recognisedText");
+
+              if (recognisedText.contains('Next')) {
+                print("🔀 Switching to next mode");
+                _switchMode(true, false);
+                setState(() {_isListening = false;});
+                return;
+              } else if (recognisedText.contains('Previous')) {
+                print("🔀 Switching to previous mode");
+                _switchMode(false, true);
+                setState(() {_isListening = false;});
+                return;
+              }
+
+              if (modes[currentModeIndex] == 'Object Search') {
+                setState(() {_searchTarget = recognisedText;});
+                if (recognisedText.isNotEmpty) {
+                  print("🔍 Searching for $recognisedText");
+                  _tts.speakText('Searching for $recognisedText');
+                } else {
                   print("❌ No search target received");
                 }
-            }:null,
+              }
+              setState(() {_isListening = false;});
+            },
 
             child: Stack(
               children: [

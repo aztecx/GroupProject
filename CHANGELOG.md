@@ -7,6 +7,14 @@
 - `Fixed` for any bug fixes. 
 - `Security` in case of vulnerabilities.
 
+## 15/03/2025
+### Added @Jiwei
+- Voice control for switching mode
+
+### Fixed @Jiwei
+- Android camera rotation fixed.
+
+
 ## 14/03/2025
 ### Added @Jiwei
 - Object Search Mode are fully functional.
