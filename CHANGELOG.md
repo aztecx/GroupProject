@@ -7,6 +7,12 @@
 - `Fixed` for any bug fixes. 
 - `Security` in case of vulnerabilities.
 
+## 14/03/2025
+### Added @Jiwei
+- Object Search Mode are fully functional.
+- <ConvertNV21Image> for another kind of android camera.
+- Set a rate limitation to <ConvertImage>.
+
 ## 11/03/2025
 ### Changed @Jiwei
 - Optimized <_prepareInput> in yolo_service.dart

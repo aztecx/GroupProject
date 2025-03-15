@@ -455,7 +455,7 @@ class _HomepageState extends State<Homepage> {
             },
             
               onLongPressStart: (modes[currentModeIndex] == 'Object Search')? (_) async{ 
-                _tts.stop();
+                _tts.switchMode();
                 _tts.speakText("Listening");
                 
                 await Future.delayed(const Duration(milliseconds:600));
