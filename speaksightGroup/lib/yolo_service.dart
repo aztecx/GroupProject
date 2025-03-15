@@ -1,4 +1,7 @@
-// lib/yolo_service.dart
+/// YoloService handles the loading of the YOLO model, running inference on images,
+/// and processing the model's output to return a list of detections.
+/// It also uses text-to-speech (TTS) to announce detected objects.
+///
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
@@ -13,7 +16,6 @@ class YoloService {
   int _inputSize = 640;
   // Confidence threshold for detection.
   final double _confidenceThreshold = 0.5;
-  // Set this flag to true if your model outputs normalized coordinates (0-1).
   final bool modelOutputsNormalized = true;
 
   Future<void> loadModel() async {
@@ -129,7 +131,7 @@ class YoloService {
       }
 
       // Apply Non-Maximum Suppression to filter out overlapping detections.
-      double nmsThreshold = 0.5; // Adjust this threshold as needed.
+      double nmsThreshold = 0.5; // The confidence level
       detections = _nonMaxSuppression(detections, nmsThreshold);
 
       // Speak out unique labels if there are detections.
