@@ -154,7 +154,7 @@ class _HomepageState extends State<Homepage> {
               final topFrequencyObj = _getTopFrequency(_recentDetections);
               if(timers['lastSpeak']!=null) {
                 int currentTime = timers['lastSpeak']!.elapsedMilliseconds;
-                print("Since lastSpeak: $currentTime");
+                // print("Since lastSpeak: $currentTime");
                 if (topFrequencyObj != null &&
                      currentTime >= 2000) {
                       _tts.speakText(topFrequencyObj);
@@ -214,7 +214,7 @@ class _HomepageState extends State<Homepage> {
 
         timers['runModel']?.stop();
         timers['base']?.stop();
-        print('🕒🕒🕒🕒🕒🕒🕒🕒 Base: ${timers['base']?.elapsedMilliseconds}ms, Run Model: ${timers['runModel']?.elapsedMilliseconds}ms');
+        // print('🕒🕒🕒🕒🕒🕒🕒🕒 Base: ${timers['base']?.elapsedMilliseconds}ms, Run Model: ${timers['runModel']?.elapsedMilliseconds}ms');
         timers['runModel']?.reset();
         timers['base']?.start();
 
@@ -232,18 +232,18 @@ class _HomepageState extends State<Homepage> {
       // final int height = image.height;
 
       if (isAndroid) {
-        print("⚠️Android Camera Image");
+        // print("⚠️Android Camera Image");
         // _checkCameraFormat(image);
         // _checkUVOrder(image);
         return _convertYUV420ToImage(image);
       } else if (isIOS) {
-        print("⚠️iOS Camera Image");
+        // print("⚠️iOS Camera Image");
         return _convertBGRA8888ToImage(image);
         // return null;
       }
       return null;
     } catch (e) {
-      print("❌ Image conversion error: $e");
+      // print("❌ Image conversion error: $e");
       return null;
     }
   }
@@ -397,7 +397,7 @@ class _HomepageState extends State<Homepage> {
       ..sort((a, b) => b.value.compareTo(a.value));
     final top3 = sortedEntries.take(3).toList();
     final result = top3.map((e) => e.key).join(", ");
-    print("Top 3 frequencies: $result");
+    // print("Top 3 frequencies: $result");
     return result;
   }
 
@@ -419,7 +419,7 @@ class _HomepageState extends State<Homepage> {
 
     });
     _tts.speakText('Switch to ${modes[currentModeIndex]}');
-    print("⚠️⚠️_detectedObjects is clear: $_detectedObjects");
+    // print("⚠️⚠️_detectedObjects is clear: $_detectedObjects");
 
   }
 
@@ -476,15 +476,15 @@ class _HomepageState extends State<Homepage> {
             /// TODO: fixed the voice control for switching mode here
             /// Currently not working properly
             onLongPressEnd: (_) async {
-              String recognisedText = await _stt.stopListening();
-              print("🎤 Recognised Text: $recognisedText");
+              String recognisedSpeech = await _stt.stopListening();
+              print("🎤 Recognised Text: $recognisedSpeech");
 
-              if (recognisedText.contains('Next')) {
+              if (recognisedSpeech.contains('Next')) {
                 print("🔀 Switching to next mode");
                 _switchMode(true, false);
                 setState(() {_isListening = false;});
                 return;
-              } else if (recognisedText.contains('Previous')) {
+              } else if (recognisedSpeech.contains('Previous')) {
                 print("🔀 Switching to previous mode");
                 _switchMode(false, true);
                 setState(() {_isListening = false;});
@@ -492,10 +492,10 @@ class _HomepageState extends State<Homepage> {
               }
 
               if (modes[currentModeIndex] == 'Object Search') {
-                setState(() {_searchTarget = recognisedText;});
-                if (recognisedText.isNotEmpty) {
-                  print("🔍 Searching for $recognisedText");
-                  _tts.speakText('Searching for $recognisedText');
+                setState(() {_searchTarget = recognisedSpeech;});
+                if (recognisedSpeech.isNotEmpty) {
+                  print("🔍 Searching for $recognisedSpeech");
+                  _tts.speakText('Searching for $recognisedSpeech');
                 } else {
                   print("❌ No search target received");
                 }

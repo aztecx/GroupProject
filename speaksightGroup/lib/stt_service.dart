@@ -10,13 +10,16 @@ class SttService {
 
   void init() async {
     _speechEnabled = await _speechToText.initialize();
+    print('STT initialized: $_speechEnabled');
   }
   
   void startListening() async {
     if (_speechEnabled) {
+      print('Starting listening...');
       await _speechToText.listen(onResult: _onSpeechResult);
       _isListening = true;
     } else {
+      print('Speech recognition not available');
       print('Speech recognition not available');
     }
   }
@@ -24,9 +27,11 @@ class SttService {
   Future<String> stopListening() async {
     if (_speechToText.isListening) {
       try {
+        print('Stopped listening');
         await _speechToText.stop();
         await Future.delayed(const Duration(milliseconds: 200));
         _isListening = false;
+        print('Final recognized words: $_lastWords');
         return _lastWords;
       } catch (e) {
         print('Error stopping speech recognition: $e');

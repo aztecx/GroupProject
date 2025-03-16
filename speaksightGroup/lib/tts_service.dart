@@ -41,7 +41,7 @@ class TtsService{
   Future<void> stop() async {
     // await _flutterTts.pause();
     await _flutterTts.stop();
-    print("✅TTS is stop");
+    // print("✅TTS is stop");
   }
   Future<void> switchMode()async{
     _flutterTts.stop();

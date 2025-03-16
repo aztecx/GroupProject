@@ -85,7 +85,7 @@ class YoloService {
       final options = tfl.InterpreterOptions()
         ..threads = 2;
 
-      print("🔄 Checking if model file exists...");
+      // print("🔄 Checking if model file exists...");
       _interpreter = await tfl.Interpreter.fromAsset('assets/models/yolo11n_float16.tflite');
       print("✅ Model file exists!");
 
@@ -96,9 +96,9 @@ class YoloService {
       print("✅ Model Loaded Successfully!");
 
 
-      var inputTensors = _interpreter.getInputTensors();
-      print("Input tensor type: ${inputTensors[0].type}");
-      print("Input tensor shape: ${inputTensors[0].shape}");
+      // var inputTensors = _interpreter.getInputTensors();
+      // print("Input tensor type: ${inputTensors[0].type}");
+      // print("Input tensor shape: ${inputTensors[0].shape}");
 
     } catch (e) {
       print("❌ Error loading model: $e");
@@ -195,19 +195,19 @@ class YoloService {
 
       // print("❌<detections> Before NMS: $detections");
       detections = _applyNMS(detections);
-      print("✅<detections> After NMS: $detections");
+      // print("✅<detections> After NMS: $detections");
 
 
     } catch (e) {
       // print("❌ Error running model: $e \n");
     }
     timers['NMS']?.stop();
-    print('🕒🕒🕒🕒🕒🕒🕒🕒 '
-        'Yolo_service Base: ${timers['base']?.elapsedMilliseconds}ms, '
-        'preprocess: ${timers['preprocess']?.elapsedMilliseconds}ms,'
-        'interpreter: ${timers['interpreter']?.elapsedMilliseconds}ms,'
-        'NMS: ${timers['NMS']?.elapsedMilliseconds}ms'
-    );
+    // print('🕒🕒🕒🕒🕒🕒🕒🕒 '
+    //     'Yolo_service Base: ${timers['base']?.elapsedMilliseconds}ms, '
+    //     'preprocess: ${timers['preprocess']?.elapsedMilliseconds}ms,'
+    //     'interpreter: ${timers['interpreter']?.elapsedMilliseconds}ms,'
+    //     'NMS: ${timers['NMS']?.elapsedMilliseconds}ms'
+    // );
     timers['base']?.reset();
     timers['preprocess']?.reset();
     timers['interpreter']?.reset();
