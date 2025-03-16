@@ -24,6 +24,7 @@ class SttService {
     }
   }
 
+  // ToFix: stopListening() method doesn't work on android
   Future<String> stopListening() async {
     if (_speechToText.isListening) {
       try {
