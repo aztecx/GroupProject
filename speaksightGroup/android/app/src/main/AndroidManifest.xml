@@ -11,6 +11,9 @@
     <!-- Required Queries -->
     <queries>
         <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE"/>
         </intent>
         <intent>

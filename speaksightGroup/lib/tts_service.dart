@@ -7,7 +7,7 @@ class TtsService{
 
 
 
-  Future<void> initTts() async {
+  Future<void> init() async {
     await _flutterTts.setPitch(1.0);
     // await _flutterTts.setSpeechRate(1.0);
     await _flutterTts.awaitSpeakCompletion(false);
@@ -35,7 +35,7 @@ class TtsService{
   }
   Future<void> setSpeed(double speed) async {
     await _flutterTts.setSpeechRate(speed);
-    print("✅TTS speed set to $speed");
+    // print("✅TTS speed set to $speed");
   }
 
   Future<void> stop() async {

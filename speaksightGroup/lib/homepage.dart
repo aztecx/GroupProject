@@ -67,7 +67,7 @@ class _HomepageState extends State<Homepage> {
   void initState() {
     super.initState();
     _checkCameraPermission();
-    _tts.initTts();
+    _tts.init();
     _stt.init();
 
     // Load the YOLO model and Text model
@@ -335,7 +335,6 @@ class _HomepageState extends State<Homepage> {
   //   }
   //   print("交错采样结果: $uvSamples");
     
-  //   // 可以比较NV21的预期输出格式(先V后U)与实际转换结果
   //   print("检查U/V平面的平均值差异:");
   //   double uAvg = cameraImage.planes[1].bytes.reduce((a, b) => a + b) / cameraImage.planes[1].bytes.length;
   //   double vAvg = cameraImage.planes[2].bytes.reduce((a, b) => a + b) / cameraImage.planes[2].bytes.length;
@@ -345,7 +344,6 @@ class _HomepageState extends State<Homepage> {
 
   // Future<img.Image?> _checkCameraFormat(CameraImage cameraImage) async {
   //   try {
-  //     // 👉 诊断代码：输出相机格式信息
   //     print("📊 相机格式信息：");
   //     print("- 平面数量: ${cameraImage.planes.length}");
   //     print("- Y平面宽度: ${cameraImage.width}, 高度: ${cameraImage.height}");
@@ -355,16 +353,12 @@ class _HomepageState extends State<Homepage> {
   //       print("- 平面[$i] 每像素字节: ${cameraImage.planes[i].bytesPerPixel}");
   //     }
       
-  //     // 💡 基于诊断信息选择转换方法
   //     if (cameraImage.format.group == ImageFormatGroup.yuv420) {
-  //       // 🔍 创建 NV21 格式的数据
   //       print("Camera Format: ${cameraImage.format.group}");
   //     } else if (cameraImage.format.group == ImageFormatGroup.nv21) {
   //       print("Camera Format: ${cameraImage.format.group}");
-  //       // 直接使用 NV21 处理
   //     } else {
   //       print("⚠️ 未知的相机格式: ${cameraImage.format.group}");
-  //       // 回退到默认处理
   //     }
   //   } catch (e) {
   //     print("❌ YUV420转换错误: $e");
