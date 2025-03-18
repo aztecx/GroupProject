@@ -13,7 +13,11 @@
 - Voice announcement in menu page
 - Gesture command in onboarding page.
 
-### Remove @Jiwei
+### Changed @Jiwei
+- Refactored onboarding page to load tutorial content from JSON file instead of hardcoded text
+- Improved navigation between pages to prevent duplicate screens in the navigation stack
+
+### Removed @Jiwei
 - Text recognition buttons in menu page.
 
 ## 15/03/2025
