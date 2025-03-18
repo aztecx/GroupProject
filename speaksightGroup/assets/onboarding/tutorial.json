@@ -1,0 +1,44 @@
+{
+    "welcome": {
+      "intro": "This application uses your phone's camera to help you better understand your surroundings through audio feedback.",
+      "title_prefix": "Welcome to \"",
+      "title_app_name": "Speak Sight",
+      "title_suffix": "\"!"
+    },
+    "instructions": [
+      {
+        "prefix": "",
+        "highlight": "Swipe down",
+        "suffix": "to skip this tutorial."
+      },
+      {
+        "prefix": "If you'd wish to review these instructions again, simply",
+        "highlight": "Swipe up",
+        "suffix": "anywhere on the screen while in the camera view to re-open the tutorial panel."
+      },
+      {
+        "prefix": "There are three modes available: Object Detection, Object Search, and Text Recognition.",
+        "highlight": "",
+        "suffix": ""
+      },
+      {
+        "prefix": "To switch between modes, just",
+        "highlight": "Swipe Left or Right",
+        "suffix": "anywhere on the screen; the active mode will be highlighted."
+      },
+      {
+        "prefix":"",
+        "highlight": "Long press",
+        "suffix": "to activate voice control. Say \"Next\" or \"Previous\" to switch mode."
+      },
+      {
+        "prefix": "In the",
+        "highlight": "Object Search mode",
+        "suffix": ",say only the object name you're looking for without any additional words to start the search."
+      }
+    ],
+    "closing": {
+      "message": "Enjoy discovering and exploring the world with",
+      "app_name": "\"Speak Sight\"!"
+    }
+  }

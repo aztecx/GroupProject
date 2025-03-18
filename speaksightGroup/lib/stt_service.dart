@@ -11,13 +11,8 @@ class SttService {
 
   void init() async {
     PermissionStatus status = await Permission.microphone.request();
-    if (status.isGranted) {
-      _speechEnabled = await _speechToText.initialize(debugLogging: true);
-      print('STT initialized: $_speechEnabled');
-    } else {
-      print('Microphone permission denied');
-      _speechEnabled = false;
-    }
+    _speechEnabled = await _speechToText.initialize(debugLogging: true);
+    print('STT initialized: $_speechEnabled');
   }
   
   void startListening() async {

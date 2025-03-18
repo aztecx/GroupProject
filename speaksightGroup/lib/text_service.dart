@@ -58,9 +58,9 @@ class TextService {
       final inputImage = InputImage.fromFilePath(tempFilePath);
 
       final RecognizedText textResult = await textRecognizer.processImage(inputImage); 
-      double offest = textResult.blocks.first.boundingBox.center.dy;
+      // double offest = textResult;
       // print(offest);
-      recognisedText = textResult.blocks.first.text;
+      recognisedText = textResult.text;
       // print(recognisedText);
 
     } catch (e) {
