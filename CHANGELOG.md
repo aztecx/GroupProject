@@ -7,6 +7,10 @@
 - `Fixed` for any bug fixes. 
 - `Security` in case of vulnerabilities.
 
+## 18/03/2025
+### Changed @Jiwei
+- <ReadingTutorial> function in onboarding page is now using tutorial.mp3 instead of TTS
+
 ## 17/03/2025
 ### Added @Jiwei
 - Voice annoucement in onboarding page.

@@ -1,5 +1,5 @@
 import 'dart:ui';
-
+import 'dart:io';
 import 'package:flutter_tts/flutter_tts.dart';
 
 class TtsService{
@@ -12,6 +12,7 @@ class TtsService{
     // await _flutterTts.setSpeechRate(1.0);
     await _flutterTts.awaitSpeakCompletion(false);
     // await _flutterTts.setQueueMode(0);
+    await _flutterTts.setLanguage('en-GB');
 
   }
 
@@ -43,12 +44,37 @@ class TtsService{
     await _flutterTts.stop();
     // print("✅TTS is stop");
   }
-  Future<void> switchMode()async{
-    _flutterTts.stop();
-    _flutterTts.setQueueMode(0);
-    _flutterTts.speak('');
-    _flutterTts.stop();
-    _flutterTts.setQueueMode(1);
+
+  Future<void> forceStop()async{
+    await _flutterTts.stop();
+    await _flutterTts.setQueueMode(0);
+    await _flutterTts.speak('');
+    await _flutterTts.stop();
+    await _flutterTts.setQueueMode(1);
+    await Future.delayed(Duration(milliseconds: 100));
+  }
+
+    Future<void> exportToMP3(String text, String fileName) async {
+    try {
+      String savePath = '${Directory.current.path}/assets/onboarding';
+      
+      String filePath = '$savePath/${fileName}_${DateTime.now().millisecondsSinceEpoch}.mp3';
+      
+      // Configure TTS for synthesis
+      await _flutterTts.setSharedInstance(true);
+      await _flutterTts.awaitSynthCompletion(true);
+      
+      // Some TTS engines support direct saving
+      bool success = await _flutterTts.synthesizeToFile(text, filePath);
+      
+      if (success) {
+        print('Audio saved successfully to: $filePath');
+      } else {
+        print('Failed to save audio file');
+      }
+    } catch (e) {
+      print('Error exporting to MP3: $e');
+    }
   }
 }
 

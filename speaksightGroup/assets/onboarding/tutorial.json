@@ -14,7 +14,7 @@
       {
         "prefix": "If you'd wish to review these instructions again, simply",
         "highlight": "Swipe up",
-        "suffix": "anywhere on the screen while in the camera view to re-open the tutorial panel."
+        "suffix": "anywhere on the screen to re-open the tutorial panel."
       },
       {
         "prefix": "There are three modes available: Object Detection, Object Search, and Text Recognition.",
@@ -24,7 +24,7 @@
       {
         "prefix": "To switch between modes, just",
         "highlight": "Swipe Left or Right",
-        "suffix": "anywhere on the screen; the active mode will be highlighted."
+        "suffix": "anywhere on the screen; the active mode will be narrated."
       },
       {
         "prefix":"",

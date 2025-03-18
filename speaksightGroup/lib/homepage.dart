@@ -109,7 +109,7 @@ class _HomepageState extends State<Homepage> {
   }
 
   int _frameCount = 0;
-  final int _frameLimit = 15; // ⚠️frame rate control
+  int _frameLimit = 15; // ⚠️frame rate control
 
   void _startDetectionLoop() async {
     
@@ -125,7 +125,7 @@ class _HomepageState extends State<Homepage> {
       if(_pauseDetection){
             return;
           }
-
+      // Limit the frame rate
       _frameCount = (_frameCount + 1) % _frameLimit;
       if (_frameCount % _frameLimit != 0) {
         return;
@@ -354,7 +354,7 @@ class _HomepageState extends State<Homepage> {
     Vibration.vibrate(duration: 100);
     // Switch mode
     // _tts = ttsService();
-    _tts.switchMode();
+    _tts.forceStop();
 
 
     setState(() {
@@ -373,7 +373,7 @@ class _HomepageState extends State<Homepage> {
   }
   void _openTutorial() {
     // Stop current TTS
-    _tts.stop();
+    _tts.forceStop();
     // Pause detection
     setState(() {
       _pauseDetection = true;
@@ -384,11 +384,15 @@ class _HomepageState extends State<Homepage> {
     }
     
     // Navigate to onboarding page
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => OnboardingPage()),
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => OnboardingPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
     ).then((_) {
-
+      _tts.forceStop();
       // When returning from onboarding, resume detection
       if (_cameraController != null && _cameraController!.value.isInitialized) {
         _startDetectionLoop();
@@ -405,7 +409,7 @@ class _HomepageState extends State<Homepage> {
     _imageStreamSubscription?.cancel();
     _cameraController?.stopImageStream();
     _cameraController?.dispose();
-    _tts.stop();
+    _tts.forceStop();
     super.dispose();
   }
 
@@ -414,7 +418,12 @@ class _HomepageState extends State<Homepage> {
   bool _hasSwipedUp = false;
   double _swipeUpDistance = 0;
   // bool _hasSwipedDown = false;
-
+  Future<bool> _willPopCallback() async {
+    await _tts.forceStop();
+    await Future.delayed(Duration(milliseconds: 100));
+    return true; // 允许页面pop
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
