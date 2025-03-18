@@ -1,5 +1,6 @@
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // https://pub.dev/packages/speech_to_text
 class SttService {
@@ -9,17 +10,16 @@ class SttService {
   bool _isListening = false;
 
   void init() async {
-    _speechEnabled = await _speechToText.initialize();
+    PermissionStatus status = await Permission.microphone.request();
+    _speechEnabled = await _speechToText.initialize(debugLogging: true);
     print('STT initialized: $_speechEnabled');
   }
   
   void startListening() async {
     if (_speechEnabled) {
-      print('Starting listening...');
       await _speechToText.listen(onResult: _onSpeechResult);
       _isListening = true;
     } else {
-      print('Speech recognition not available');
       print('Speech recognition not available');
     }
   }
@@ -28,8 +28,8 @@ class SttService {
   Future<String> stopListening() async {
     if (_speechToText.isListening) {
       try {
-        print('Stopped listening');
         await _speechToText.stop();
+        print('Stopped listening');
         await Future.delayed(const Duration(milliseconds: 200));
         _isListening = false;
         print('Final recognized words: $_lastWords');

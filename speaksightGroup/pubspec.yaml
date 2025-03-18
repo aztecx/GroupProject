@@ -82,6 +82,8 @@ flutter:
     - assets/models/yolo11n_float16.tflite
     - assets/models/yolo11n_float32.tflite
     - assets/images/text.png
+    - assets/onboarding/tutorial.json
+    - assets/onboarding/corner_app_logo.png
 
 
 

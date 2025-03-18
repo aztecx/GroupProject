@@ -7,6 +7,19 @@
 - `Fixed` for any bug fixes. 
 - `Security` in case of vulnerabilities.
 
+## 17/03/2025
+### Added @Jiwei
+- Voice annoucement in onboarding page.
+- Voice announcement in menu page
+- Gesture command in onboarding page.
+
+### Changed @Jiwei
+- Refactored onboarding page to load tutorial content from JSON file instead of hardcoded text
+- Improved navigation between pages to prevent duplicate screens in the navigation stack
+
+### Removed @Jiwei
+- Text recognition buttons in menu page.
+
 ## 15/03/2025
 ### Added @Jiwei
 - Voice control for switching mode
@@ -20,6 +33,8 @@
 - Object Search Mode are fully functional.
 - <ConvertNV21Image> for another kind of android camera.
 - Set a rate limitation to <ConvertImage>.
+### Added @Louise
+- UI designed
 
 ## 11/03/2025
 ### Changed @Jiwei

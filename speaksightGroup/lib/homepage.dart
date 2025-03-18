@@ -1,6 +1,7 @@
 // lib/homepage.dart
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter/services.dart';
 import 'package:speaksightgroup/text_service.dart';
 import 'package:speaksightgroup/tts_service.dart';
 import 'package:speaksightgroup/stt_service.dart';
@@ -13,6 +14,8 @@ import 'yolo_service.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:io';
+import 'package:speaksightgroup/onboarding.dart';
+
 
 
 
@@ -52,7 +55,7 @@ class _HomepageState extends State<Homepage> {
   String _searchTarget = '';
 
   bool _isProcessing=false; // ⚠️防止并发处理
-  bool _isListening = false;
+  bool _pauseDetection = false;
   
   // List of modes
   final List<String>  modes = [
@@ -67,7 +70,7 @@ class _HomepageState extends State<Homepage> {
   void initState() {
     super.initState();
     _checkCameraPermission();
-    _tts.initTts();
+    _tts.init();
     _stt.init();
 
     // Load the YOLO model and Text model
@@ -119,7 +122,7 @@ class _HomepageState extends State<Homepage> {
     // Start the image stream
     await _cameraController!.startImageStream((CameraImage image) async {
       
-      if(_isListening){
+      if(_pauseDetection){
             return;
           }
 
@@ -250,7 +253,6 @@ class _HomepageState extends State<Homepage> {
 
   img.Image? convertedImage;
 
-
   /*
    * For Android Camera
    * Adapted from: https://gist.github.com/Alby-o/fe87e35bc21d534c8220aed7df028e03
@@ -319,59 +321,6 @@ class _HomepageState extends State<Homepage> {
     return img.copyRotate(convertedImage!, angle: 90);
   }
 
-  // void _checkUVOrder(CameraImage cameraImage) {
-
-  //   print("🔍 检查UV排列顺序:");
-  //   print("U平面前10个字节: ${cameraImage.planes[1].bytes.sublist(0, 10)}");
-  //   print("V平面前10个字节: ${cameraImage.planes[2].bytes.sublist(0, 10)}");
-    
-  //   int sampleSize = 20;
-  //   List<int> uvSamples = [];
-  //   for (int i = 0; i < sampleSize; i += 2) {
-  //     if (i < cameraImage.planes[1].bytes.length && i < cameraImage.planes[2].bytes.length) {
-  //       uvSamples.add(cameraImage.planes[2].bytes[i]);
-  //       uvSamples.add(cameraImage.planes[1].bytes[i]);
-  //     }
-  //   }
-  //   print("交错采样结果: $uvSamples");
-    
-  //   // 可以比较NV21的预期输出格式(先V后U)与实际转换结果
-  //   print("检查U/V平面的平均值差异:");
-  //   double uAvg = cameraImage.planes[1].bytes.reduce((a, b) => a + b) / cameraImage.planes[1].bytes.length;
-  //   double vAvg = cameraImage.planes[2].bytes.reduce((a, b) => a + b) / cameraImage.planes[2].bytes.length;
-  //   print("U平面平均值: $uAvg");
-  //   print("V平面平均值: $vAvg");
-  // }
-
-  // Future<img.Image?> _checkCameraFormat(CameraImage cameraImage) async {
-  //   try {
-  //     // 👉 诊断代码：输出相机格式信息
-  //     print("📊 相机格式信息：");
-  //     print("- 平面数量: ${cameraImage.planes.length}");
-  //     print("- Y平面宽度: ${cameraImage.width}, 高度: ${cameraImage.height}");
-  //     for (int i = 0; i < cameraImage.planes.length; i++) {
-  //       print("- 平面[$i] 字节数: ${cameraImage.planes[i].bytes.length}");
-  //       print("- 平面[$i] 每行字节: ${cameraImage.planes[i].bytesPerRow}");
-  //       print("- 平面[$i] 每像素字节: ${cameraImage.planes[i].bytesPerPixel}");
-  //     }
-      
-  //     // 💡 基于诊断信息选择转换方法
-  //     if (cameraImage.format.group == ImageFormatGroup.yuv420) {
-  //       // 🔍 创建 NV21 格式的数据
-  //       print("Camera Format: ${cameraImage.format.group}");
-  //     } else if (cameraImage.format.group == ImageFormatGroup.nv21) {
-  //       print("Camera Format: ${cameraImage.format.group}");
-  //       // 直接使用 NV21 处理
-  //     } else {
-  //       print("⚠️ 未知的相机格式: ${cameraImage.format.group}");
-  //       // 回退到默认处理
-  //     }
-  //   } catch (e) {
-  //     print("❌ YUV420转换错误: $e");
-  //     return null;
-  //   }
-  // }
-
   // For Camera on iOS
   img.Image _convertBGRA8888ToImage(CameraImage image) {
     final bytes = Uint8List.fromList(image.planes[0].bytes);
@@ -422,6 +371,34 @@ class _HomepageState extends State<Homepage> {
     // print("⚠️⚠️_detectedObjects is clear: $_detectedObjects");
 
   }
+  void _openTutorial() {
+    // Stop current TTS
+    _tts.stop();
+    // Pause detection
+    setState(() {
+      _pauseDetection = true;
+    });
+    if (_cameraController != null && _cameraController!.value.isStreamingImages) {
+      _imageStreamSubscription?.cancel();
+      _cameraController!.stopImageStream();
+    }
+    
+    // Navigate to onboarding page
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => OnboardingPage()),
+    ).then((_) {
+
+      // When returning from onboarding, resume detection
+      if (_cameraController != null && _cameraController!.value.isInitialized) {
+        _startDetectionLoop();
+      }
+      setState(() {
+        _pauseDetection = false;
+      });
+      
+    });
+  }
 
   @override
   void dispose() {
@@ -434,6 +411,10 @@ class _HomepageState extends State<Homepage> {
 
   bool _hasSwipedLeft = false;
   bool _hasSwipedRight = false;
+  bool _hasSwipedUp = false;
+  double _swipeUpDistance = 0;
+  // bool _hasSwipedDown = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -444,7 +425,10 @@ class _HomepageState extends State<Homepage> {
             onPanStart: (details) {
               _hasSwipedLeft = false;
               _hasSwipedRight = false;
+              _hasSwipedUp = false;
+              // _hasSwipedDown = false;
             },
+
             onPanUpdate: (details) {
               if (details.delta.dx < -10 && !_hasSwipedLeft) {
                 _hasSwipedLeft = true;
@@ -454,10 +438,23 @@ class _HomepageState extends State<Homepage> {
                 _hasSwipedRight = true;
                 _switchMode(false,true);
               }
+              if(details.delta.dy < -2){
+                _hasSwipedUp = true;
+                _swipeUpDistance -= details.delta.dy;
+                if(_swipeUpDistance > 50 && !_hasSwipedUp){
+                  HapticFeedback.mediumImpact();
+                  _hasSwipedUp=true;
+                }
+              }
             },
             onPanEnd: (details) {
               _hasSwipedLeft = false;
               _hasSwipedRight = false;
+              if(_swipeUpDistance > 100){
+                _openTutorial();
+              }
+              _swipeUpDistance = 0;
+              _hasSwipedUp = false;
             },
         
             
@@ -468,7 +465,7 @@ class _HomepageState extends State<Homepage> {
               await Future.delayed(const Duration(milliseconds:500));
               Vibration.vibrate(duration: 100);
               setState(() {
-                _isListening = true;
+                _pauseDetection = true;
               });
               _stt.startListening();
             },
@@ -482,12 +479,12 @@ class _HomepageState extends State<Homepage> {
               if (recognisedSpeech.contains('Next')) {
                 print("🔀 Switching to next mode");
                 _switchMode(true, false);
-                setState(() {_isListening = false;});
+                setState(() {_pauseDetection = false;});
                 return;
               } else if (recognisedSpeech.contains('Previous')) {
                 print("🔀 Switching to previous mode");
                 _switchMode(false, true);
-                setState(() {_isListening = false;});
+                setState(() {_pauseDetection = false;});
                 return;
               }
 
@@ -500,7 +497,7 @@ class _HomepageState extends State<Homepage> {
                   print("❌ No search target received");
                 }
               }
-              setState(() {_isListening = false;});
+              setState(() {_pauseDetection = false;});
             },
 
             child: Stack(
