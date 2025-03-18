@@ -1,8 +1,3 @@
--dontwarn com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions$Builder
--dontwarn com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
--dontwarn com.google.mlkit.vision.text.devanagari.DevanagariTextRecognizerOptions$Builder
--dontwarn com.google.mlkit.vision.text.devanagari.DevanagariTextRecognizerOptions
--dontwarn com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions$Builder
--dontwarn com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
--dontwarn com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions$Builder
--dontwarn com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
+# 保留所有 TensorFlow Lite GPU Delegate 的类
+-keep class org.tensorflow.lite.gpu.** { *; }
+-keep class org.tensorflow.lite.** { *; }

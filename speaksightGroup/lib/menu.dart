@@ -19,6 +19,7 @@ class _MenuPageState extends State<MenuPage>
   @override
   void initState() {
     super.initState();
+    _tts.init();
     _animationController = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 800),
@@ -239,11 +240,11 @@ class _MenuPageState extends State<MenuPage>
           onTap: () {
             HapticFeedback.lightImpact();
             if (title == 'Activate Camera') {
-              _tts.forceStop();
+              _tts.stop();
               _tts.speakText("Activate camera. Double tap to start object detection.");
               // _tts.stop();
             } else if (title == 'Settings') {
-              _tts.forceStop();
+              _tts.stop();
               _tts.speakText("Settings menu. Double tap to customize application preferences.");
               
             } else {

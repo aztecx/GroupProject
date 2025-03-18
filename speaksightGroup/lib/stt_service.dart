@@ -25,24 +25,27 @@ class SttService {
   }
 
   // ToFix: stopListening() method doesn't work on android
-  Future<String> stopListening() async {
-    if (_speechToText.isListening) {
-      try {
-        await _speechToText.stop();
-        print('Stopped listening');
-        await Future.delayed(const Duration(milliseconds: 200));
-        _isListening = false;
-        print('Final recognized words: $_lastWords');
-        return _lastWords;
-      } catch (e) {
-        print('Error stopping speech recognition: $e');
-        return '';
-      }
-    } else {
+Future<String> stopListening() async {
+  if (_speechToText.isListening) {
+    try {
+      await _speechToText.stop();
+      print('Stopped listening');
+      await Future.delayed(const Duration(milliseconds: 200));
       _isListening = false;
-      return _lastWords;
+      List<String> words = _lastWords.trim().split(RegExp(r'\s+'));
+      String lastWord = words.isNotEmpty ? words.last : '';
+      print('Final recognized word: $lastWord');
+      return lastWord;
+    } catch (e) {
+      print('Error stopping speech recognition: $e');
+      return '';
     }
+  } else {
+    _isListening = false;
+    List<String> words = _lastWords.trim().split(RegExp(r'\s+'));
+    return words.isNotEmpty ? words.last : '';
   }
+}
 
   void _onSpeechResult(SpeechRecognitionResult result) {
     _lastWords = result.recognizedWords;

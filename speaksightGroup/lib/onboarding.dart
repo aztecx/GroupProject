@@ -20,7 +20,7 @@ class _OnboardingPageState extends State<OnboardingPage>
   int _duration = 0;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  // final TtsService _tts = TtsService();
+  final TtsService _tts = TtsService();
   Map<String, dynamic> _tutorialText= {}; 
   AudioPlayer? _audioPlayer;
 
@@ -28,7 +28,7 @@ class _OnboardingPageState extends State<OnboardingPage>
   void initState() {
     super.initState();
     _loadTexts();
-    // _tts.init();
+    _tts.init();
 
     _animationController = AnimationController(
       vsync: this,

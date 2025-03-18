@@ -11,11 +11,7 @@
         "highlight": "Swipe down",
         "suffix": "to skip this tutorial."
       },
-      {
-        "prefix": "If you'd wish to review these instructions again, simply",
-        "highlight": "Swipe up",
-        "suffix": "anywhere on the screen to re-open the tutorial panel."
-      },
+
       {
         "prefix": "There are three modes available: Object Detection, Object Search, and Text Recognition.",
         "highlight": "",
@@ -35,6 +31,11 @@
         "prefix": "In the",
         "highlight": "Object Search mode",
         "suffix": ",say only the object name you're looking for without any additional words to start the search."
+      },
+      {
+        "prefix": "If you'd wish to review these instructions again, simply",
+        "highlight": "Swipe up",
+        "suffix": "anywhere on the screen to re-open the tutorial panel."
       }
     ],
     "closing": {

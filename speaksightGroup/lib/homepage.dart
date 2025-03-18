@@ -354,7 +354,7 @@ class _HomepageState extends State<Homepage> {
     Vibration.vibrate(duration: 100);
     // Switch mode
     // _tts = ttsService();
-    _tts.forceStop();
+    _tts.stop();
 
 
     setState(() {
@@ -373,7 +373,7 @@ class _HomepageState extends State<Homepage> {
   }
   void _openTutorial() {
     // Stop current TTS
-    _tts.forceStop();
+    _tts.stop();
     // Pause detection
     setState(() {
       _pauseDetection = true;
@@ -392,7 +392,7 @@ class _HomepageState extends State<Homepage> {
         },
       ),
     ).then((_) {
-      _tts.forceStop();
+      _tts.stop();
       // When returning from onboarding, resume detection
       if (_cameraController != null && _cameraController!.value.isInitialized) {
         _startDetectionLoop();
@@ -418,11 +418,6 @@ class _HomepageState extends State<Homepage> {
   bool _hasSwipedUp = false;
   double _swipeUpDistance = 0;
   // bool _hasSwipedDown = false;
-  Future<bool> _willPopCallback() async {
-    await _tts.forceStop();
-    await Future.delayed(Duration(milliseconds: 100));
-    return true; // 允许页面pop
-  }
   
   @override
   Widget build(BuildContext context) {
@@ -485,15 +480,17 @@ class _HomepageState extends State<Homepage> {
               String recognisedSpeech = await _stt.stopListening();
               print("🎤 Recognised Text: $recognisedSpeech");
 
-              if (recognisedSpeech.contains('Next')) {
+              if (recognisedSpeech.contains('Next')||recognisedSpeech.contains('next')) {
                 print("🔀 Switching to next mode");
                 _switchMode(true, false);
                 setState(() {_pauseDetection = false;});
+                recognisedSpeech = '';
                 return;
-              } else if (recognisedSpeech.contains('Previous')) {
+              } else if (recognisedSpeech.contains('Previous')||recognisedSpeech.contains('previous')) {
                 print("🔀 Switching to previous mode");
                 _switchMode(false, true);
                 setState(() {_pauseDetection = false;});
+                recognisedSpeech = '';
                 return;
               }
 
@@ -507,6 +504,7 @@ class _HomepageState extends State<Homepage> {
                 }
               }
               setState(() {_pauseDetection = false;});
+              recognisedSpeech = '';
             },
 
             child: Stack(
