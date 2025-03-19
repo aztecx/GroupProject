@@ -3,11 +3,27 @@ import 'package:flutter/services.dart';
 import 'tts_service.dart';
 import 'onboarding.dart';
 
+/// MenuPage provides the main navigation hub for the application.
+///
+/// This is the primary entry point for users, offering:
+/// - Accessible buttons for core app features
+/// - Voice feedback on button focus and selection
+/// - Access to the onboarding tutorial
+///
+/// The menu is designed to be fully accessible to visually impaired users
+/// with large touch targets, clear labels, and audio guidance.
 class MenuPage extends StatefulWidget {
   @override
   _MenuPageState createState() => _MenuPageState();
 }
 
+/// State for MenuPage handling UI rendering and user interactions.
+///
+/// This state manages:
+/// - Animations for page transitions and UI elements
+/// - Text-to-speech feedback for menu items
+/// - Gesture detection for tutorial access
+/// - Navigation to other app sections
 class _MenuPageState extends State<MenuPage>
   with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
@@ -32,6 +48,11 @@ class _MenuPageState extends State<MenuPage>
   _animationController.forward();
   }
 
+  /// Opens the tutorial/onboarding page.
+  /// 
+  /// Stops any ongoing speech, transitions to the tutorial page
+  /// with a fade animation, and ensures speech is stopped when
+  /// returning from the tutorial.
   void _openTutorial() {
     _tts.forceStop();
 
@@ -46,12 +67,6 @@ class _MenuPageState extends State<MenuPage>
       _tts.forceStop();
     });
   }
-  
-  Future<bool> _willPopCallback() async {
-    await _tts.forceStop();
-    await Future.delayed(Duration(milliseconds: 100));
-    return true; // 允许页面pop
-  }
 
   @override
   void dispose() {
@@ -59,6 +74,16 @@ class _MenuPageState extends State<MenuPage>
     super.dispose();
   }
 
+  /// Builds the main UI for the menu page.
+  /// 
+  /// Creates a page with:
+  /// 1. App title and logo
+  /// 2. Welcome message
+  /// 3. Menu buttons for main features (camera, settings)
+  /// 4. Gesture detector for swipe-to-tutorial
+  /// 
+  /// The UI includes animations for page transitions and visual feedback
+  /// for gestures to improve accessibility.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -219,6 +244,17 @@ class _MenuPageState extends State<MenuPage>
       ),
     );
   }
+
+  /// Creates a styled menu button with icon, title, and subtitle.
+  /// 
+  /// Each button provides:
+  /// - Visual feedback with color and icon
+  /// - Audio feedback on single tap (reads button purpose)
+  /// - Navigation on double tap (activates the feature)
+  /// - Haptic feedback for both interactions
+  /// 
+  /// The buttons use staggered animations when the page loads, with
+  /// buttons appearing in sequence for a polished experience.
   Widget _buildMenuButton(BuildContext context, String title, String subtitle,
       IconData icon, String route, Color color, int index) {
     return TweenAnimationBuilder<double>(
@@ -322,7 +358,7 @@ class _MenuPageState extends State<MenuPage>
                                     ?.withOpacity(0.7),
                               ),
                               overflow: TextOverflow.ellipsis, // Prevent overflow
-                              maxLines: 1, // Restrict to 1 line
+                              maxLines: 1,
                             ),
                           ]
                         ],
@@ -334,7 +370,7 @@ class _MenuPageState extends State<MenuPage>
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Icon(
                       Icons.arrow_forward_ios,
-                      size: 18, // Reduced size to avoid overflow
+                      size: 18,
                       color: color,
                     ),
                   ),

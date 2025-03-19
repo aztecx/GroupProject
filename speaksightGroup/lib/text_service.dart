@@ -4,7 +4,18 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as img;
 
-// Text Service class where the text recognition model is loaded and the image is processed
+/// Applies Non-Maximum Suppression to filter overlapping detections.
+/// 
+/// This method:
+/// 1. Sorts detections by confidence (highest first)
+/// 2. Calculates IoU (Intersection over Union) between boxes
+/// 3. Suppresses boxes with high overlap (IoU > threshold) with higher confidence boxes
+/// 
+/// Parameters:
+///   detections: List of detection results to filter
+/// 
+/// Returns:
+///   Filtered list of detections with overlapping boxes removed
 class TextService {
   late TextRecognizer textRecognizer;
   String? selectedImagePath;
@@ -31,19 +42,29 @@ class TextService {
     return file;
   }
 
-  // Process the image and recognize the text
+  /// Processes an image and recognizes text content within it.
+  /// 
+  /// This method:
+  /// 1. Encodes the provided image to JPEG format
+  /// 2. Writes it to a temporary file
+  /// 3. Creates an InputImage from the file path
+  /// 4. Processes the image with ML Kit's text recognizer
+  /// 5. Returns the extracted text as a string
+  /// 
+  /// Parameters:
+  ///   image: The image object to process for text recognition
+  /// 
+  /// Returns:
+  ///   A string containing all recognized text from the image,
+  ///   or an empty string if no text was found or an error occurred
   Future<String> runModel(img.Image image) async {
     String recognisedText = '';
     try {
-// Copy asset image to a temporary file
-      // final tempFile = await _copyAssetToFile(assetPath);
-      // final inputImage = InputImage.fromFilePath(tempFile.path);
-
       // Copy asset image to a temporary file
       // final tempFile = await _copyAssetToFile(assetPath);
       // final inputImage = InputImage.fromFilePath(tempFile.path);
 
-      // Encode your img.Image to JPEG (or PNG)
+      // Encode your img.Image to JPEG
       final Uint8List encodedBytes = Uint8List.fromList(img.encodeJpg(image));
 
       // Get a temporary directory

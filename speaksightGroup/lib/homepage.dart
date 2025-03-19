@@ -16,16 +16,33 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'package:speaksightgroup/onboarding.dart';
 
-
-
-
-
+/// Homepage provides the main camera functionality of the application.
+///
+/// This is the core functional page that enables:
+/// - Object detection with audio feedback
+/// - Text recognition with spoken output
+/// - Object search with directional guidance
+/// - Voice command input for controls
+/// - Gesture controls for navigation
+///
+/// The page uses the device camera to capture real-time video and
+/// processes frames to identify objects or text, providing audio
+/// feedback to assist visually impaired users.
 class Homepage extends StatefulWidget {
   @override
   _HomepageState createState() => _HomepageState();
 }
 
+/// State for Homepage handling camera processing and detection features.
+///
+/// This state manages:
+/// - Camera initialization and frame processing
+/// - Multiple detection modes (Object Detection, Text Recognition, Object Search)
+/// - Gesture control handling
+/// - Voice command processing
+/// - Text-to-speech feedback
 class _HomepageState extends State<Homepage> {
+  /// Performance monitoring stopwatches for different processing stages.
   final timers = <String, Stopwatch>{
     'base': Stopwatch(),
     'runModel': Stopwatch(),
@@ -33,6 +50,7 @@ class _HomepageState extends State<Homepage> {
 
   };
 
+  /// Platform detection flags for device-specific code paths.
   bool isAndroid = Platform.isAndroid;
   bool isIOS = Platform.isIOS;
 
@@ -65,7 +83,6 @@ class _HomepageState extends State<Homepage> {
   ];
   int currentModeIndex = 0;
 
-  // Check the camera permission and initialize the camera
   @override
   void initState() {
     super.initState();
@@ -112,8 +129,6 @@ class _HomepageState extends State<Homepage> {
   int _frameLimit = 15; // ⚠️frame rate control
 
   void _startDetectionLoop() async {
-    
-
     // check if the camera is initialized
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
@@ -140,7 +155,7 @@ class _HomepageState extends State<Homepage> {
 
         timers['runModel']?.start();
 
-        // Run the YOLO model
+        // Process image based on current mode
         if (convertedImage != null) {
           if (modes[currentModeIndex] == 'Object Detection') {
             final thisResults = await _yoloService.runModel(convertedImage);
@@ -150,7 +165,7 @@ class _HomepageState extends State<Homepage> {
             if(thisResults.isNotEmpty){
               final objectsInThisFrame = thisResults.map((obj) => obj['label'] as String).toList();
               _recentDetections.add(objectsInThisFrame);
-              if(_recentDetections.length > 10){ //最近10帧
+              if(_recentDetections.length > 10){ // Keep last 10 frames
                 _recentDetections.removeAt(0);
               }
 
@@ -187,16 +202,19 @@ class _HomepageState extends State<Homepage> {
               return label == _searchTarget.toLowerCase();
               }).toList();
 
+            // Provide directional guidance if target is found
             if (found.isNotEmpty) {
               final targetObj = found.first;
 
+              // Calculate object position relative to screen
               final double xCenter = targetObj['denormalizedX'];
               final double yCenter = targetObj['denormalizedY'];
               final screenWidth = MediaQuery.of(context).size.width;
               final screenHeight = MediaQuery.of(context).size.height;
               final double halfW = screenWidth / 2;
               final double halfH = screenHeight / 2;
-              
+
+              // Determine quadrant location
               String quadrant;
               if (xCenter < halfW && yCenter < halfH) {
                 quadrant = "top-left";
@@ -217,7 +235,7 @@ class _HomepageState extends State<Homepage> {
 
         timers['runModel']?.stop();
         timers['base']?.stop();
-        // print('🕒🕒🕒🕒🕒🕒🕒🕒 Base: ${timers['base']?.elapsedMilliseconds}ms, Run Model: ${timers['runModel']?.elapsedMilliseconds}ms');
+        print('🕒🕒🕒🕒🕒🕒🕒🕒 Base: ${timers['base']?.elapsedMilliseconds}ms, Run Model: ${timers['runModel']?.elapsedMilliseconds}ms');
         timers['runModel']?.reset();
         timers['base']?.start();
 
@@ -229,6 +247,16 @@ class _HomepageState extends State<Homepage> {
     });
   }
 
+  /// Converts camera frames to the img.Image format for processing.
+  /// 
+  /// This method dispatches to platform-specific conversion methods
+  /// since Android and iOS use different image formats from the camera.
+  /// 
+  /// Parameters:
+  ///   image: The camera image to convert
+  /// 
+  /// Returns:
+  ///   An img.Image object or null if conversion fails
   Future<img.Image?> _convertCameraImage(CameraImage image) async {
     try {
       // final int width = image.width;
@@ -236,8 +264,6 @@ class _HomepageState extends State<Homepage> {
 
       if (isAndroid) {
         // print("⚠️Android Camera Image");
-        // _checkCameraFormat(image);
-        // _checkUVOrder(image);
         return _convertYUV420ToImage(image);
       } else if (isIOS) {
         // print("⚠️iOS Camera Image");
@@ -250,25 +276,38 @@ class _HomepageState extends State<Homepage> {
       return null;
     }
   }
-
+  /// Reused image instance to reduce memory allocation.
   img.Image? convertedImage;
 
-  /*
-   * For Android Camera
-   * Adapted from: https://gist.github.com/Alby-o/fe87e35bc21d534c8220aed7df028e03
-   * Author: @ Alby-o
-   * 
-   * The memory leakage issue on android is caused by this function.
-   * Every time the function is called, a new img.Image object is created. 
-   * Because this function converts every pixel within the img.Image into RGB format, the resulting img.Image occupies a significant amount of memory.
-   * Moreover, new img.Image objects are created faster than the previous ones can be disposed, which causes memory leakage.
-   * Unlike <_convertBGRA8888ToImage> for iOS, there is no in-built function to implement the conversion for android.
-   * The current solution is to limit how frequently this function is called: it is now called once every 15 frames.
-   */
+
+
+  /// Converts YUV420 format camera images to RGB format for Android.
+  /// Adapted from: https://gist.github.com/Alby-o/fe87e35bc21d534c8220aed7df028e03
+  /// Author: @ Alby-o
+  /// 
+  /// This is an optimized implementation that:
+  /// 1. Reuses image buffers when possible
+  /// 2. Performs YUV to RGB color space conversion
+  /// 3. Rotates the image to match screen orientation
+  /// 
+  ///    Note: 
+  ///     The memory leakage issue on android is caused by this function.
+  ///     Every time the function is called, a new img.Image object is created. 
+  ///     Because this function converts every pixel within the img.Image into RGB format, the resulting img.Image occupies a significant amount of memory.
+  ///     Moreover, new img.Image objects are created faster than the previous ones can be disposed, which causes memory leakage.
+  ///     Unlike <_convertBGRA8888ToImage> for iOS, there is no in-built function to implement the conversion for android.
+  ///     The current solution is to limit how frequently this function is called: it is now called once every 15 frames.
+  /// 
+  /// Parameters:
+  ///   cameraImage: The YUV format camera image
+  /// 
+  /// Returns:
+  ///   An RGB format image suitable for processing
   img.Image _convertYUV420ToImage(CameraImage cameraImage) {
     final imageWidth = cameraImage.width;
     final imageHeight = cameraImage.height;
 
+    // Reuse image buffer when possible to reduce memory allocations
     if (convertedImage == null ||
         convertedImage!.width != imageWidth ||
         convertedImage!.height != imageHeight) {
@@ -321,7 +360,16 @@ class _HomepageState extends State<Homepage> {
     return img.copyRotate(convertedImage!, angle: 90);
   }
 
-  // For Camera on iOS
+  /// Converts BGRA8888 format camera images to RGB format for iOS.
+  /// 
+  /// Uses the img.Image library's built-in conversion capabilities
+  /// which are more efficient than manual pixel conversion.
+  /// 
+  /// Parameters:
+  ///   image: The BGRA format camera image
+  /// 
+  /// Returns:
+  ///   An RGB format image suitable for processing
   img.Image _convertBGRA8888ToImage(CameraImage image) {
     final bytes = Uint8List.fromList(image.planes[0].bytes);
     return img.Image.fromBytes(
@@ -332,7 +380,16 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
-  // Get the top 3 frequency of detected objects
+  /// Analyzes recent detections to find most frequently detected objects.
+  /// 
+  /// This method:
+  /// 1. Flattens all detections from recent frames
+  /// 2. Counts frequency of each object label
+  /// 3. Sorts by frequency (highest first)
+  /// 4. Returns top 3 most frequent objects
+  /// 
+  /// This helps filter out random false detections by prioritizing
+  /// objects that consistently appear across multiple frames.
   String? _getTopFrequency(List<List<String>> recentDetections) {
     if (recentDetections.isEmpty) return null;
 
@@ -350,13 +407,19 @@ class _HomepageState extends State<Homepage> {
     return result;
   }
 
+  /// Switches between app modes (Object Detection, Object Search, Text Recognition).
+  /// 
+  /// Provides haptic feedback, clears previous detection results,
+  /// and announces the new mode via text-to-speech.
+  /// 
+  /// Parameters:
+  ///   nextMode: If true, advance to the next mode
+  ///   previousMode: If true, go to the previous mode
   void _switchMode (bool nextMode, bool previousMode) async{
     Vibration.vibrate(duration: 100);
     // Switch mode
     // _tts = ttsService();
     _tts.stop();
-
-
     setState(() {
       if (nextMode) {
         currentModeIndex = (currentModeIndex + 1) % modes.length; // next mode
@@ -371,6 +434,12 @@ class _HomepageState extends State<Homepage> {
     // print("⚠️⚠️_detectedObjects is clear: $_detectedObjects");
 
   }
+
+  /// Opens the tutorial/onboarding page.
+  /// 
+  /// Stops any ongoing speech, transitions to the tutorial page
+  /// with a fade animation, and ensures speech is stopped when
+  /// returning from the tutorial.
   void _openTutorial() {
     // Stop current TTS
     _tts.stop();
@@ -413,12 +482,23 @@ class _HomepageState extends State<Homepage> {
     super.dispose();
   }
 
+  /// Swipe gesture tracking flags.
   bool _hasSwipedLeft = false;
   bool _hasSwipedRight = false;
   bool _hasSwipedUp = false;
-  double _swipeUpDistance = 0;
   // bool _hasSwipedDown = false;
+  double _swipeUpDistance = 0;
   
+  /// Builds the main UI for the homepage.
+  /// 
+  /// Creates a page with:
+  /// 1. Camera preview
+  /// 2. Bounding box overlays for detected objects
+  /// 3. Mode indicator
+  /// 4. Gesture detectors for swipe navigation and voice commands
+  /// 
+  /// The UI is designed to work primarily through gestures and voice
+  /// for visually impaired users, with minimal reliance on visual elements.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -461,7 +541,6 @@ class _HomepageState extends State<Homepage> {
               _hasSwipedUp = false;
             },
         
-            
             onLongPressStart: (_) async{ 
               _tts.stop();
               _tts.speakText("Listening");
@@ -474,8 +553,6 @@ class _HomepageState extends State<Homepage> {
               _stt.startListening();
             },
 
-            /// TODO: fixed the voice control for switching mode here
-            /// Currently not working properly
             onLongPressEnd: (_) async {
               String recognisedSpeech = await _stt.stopListening();
               print("🎤 Recognised Text: $recognisedSpeech");
@@ -533,7 +610,6 @@ class _HomepageState extends State<Homepage> {
                           ],
                         ),
                       ),
-                      // You can still keep an icon if you want a visual cue.
                       Icon(Icons.touch_app, size: 50, color: Colors.white),
                     ],
                   ),

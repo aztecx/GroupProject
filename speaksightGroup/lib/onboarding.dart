@@ -4,13 +4,28 @@ import 'dart:convert';
 import 'tts_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 
-
+/// OnboardingPage provides first-time users with a tutorial on how to use the app.
+///
+/// This page presents visually impaired users with:
+/// - An introduction to the app's purpose and features
+/// - Audio guidance explaining core functionality
+/// - Instructions on gesture controls and navigation
+/// - Step-by-step tutorial with highlighted key actions
+///
+/// Users can dismiss the tutorial by swiping down.
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({Key? key}) : super(key: key);
   @override
   _OnboardingPageState createState() => _OnboardingPageState();
 }
 
+/// State for OnboardingPage handling tutorial content and user interactions.
+///
+/// This state manages:
+/// - Loading tutorial text from JSON
+/// - Playing audio instructions
+/// - Handling swipe gestures for dismissal
+/// - Animated transitions between tutorial sections
 class _OnboardingPageState extends State<OnboardingPage>
     with SingleTickerProviderStateMixin {
   bool showTutorial = true;
@@ -39,6 +54,11 @@ class _OnboardingPageState extends State<OnboardingPage>
     _animationController.forward();
   }
 
+  /// Loads tutorial text content from a JSON file.
+  /// 
+  /// Retrieves tutorial content including welcome messages, instructions,
+  /// and closing text from a structured JSON file in the assets folder.
+  /// Once loaded, automatically starts reading the tutorial.
   Future<void> _loadTexts() async {
     final String response = await rootBundle.loadString('assets/onboarding/tutorial.json');
     setState(() {
@@ -51,6 +71,11 @@ class _OnboardingPageState extends State<OnboardingPage>
     }
   }
 
+  /// Plays pre-recorded audio narration for the tutorial.
+  /// 
+  /// Initializes an audio player to play the tutorial MP3 file.
+  /// Sets up event listeners to handle playback completion and errors.
+  /// This provides audio guidance for visually impaired users.
   void _readTutorial() {
     _audioPlayer = AudioPlayer();
     
@@ -77,7 +102,6 @@ class _OnboardingPageState extends State<OnboardingPage>
     }
   }
 
-
   @override
   void dispose() {
     // _tts.stop();
@@ -88,6 +112,15 @@ class _OnboardingPageState extends State<OnboardingPage>
     super.dispose();
   }
 
+  /// Builds the main UI for the onboarding page.
+  /// 
+  /// Creates a stack with:
+  /// - App logo background
+  /// - Tutorial overlay with instructions and welcome message
+  /// - Gesture detector for swipe-to-dismiss functionality
+  /// 
+  /// The UI includes animations for page transitions and visual feedback
+  /// for gestures to improve accessibility.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -263,11 +296,10 @@ class _OnboardingPageState extends State<OnboardingPage>
                     });
                   }
                 },
-                // 使这个GestureDetector覆盖整个屏幕
                 child: Container(
                   width: double.infinity,
                   height: double.infinity,
-                  color: Colors.transparent, // 透明背景
+                  color: Colors.transparent,
                 ),
               ),
           ],
@@ -276,6 +308,12 @@ class _OnboardingPageState extends State<OnboardingPage>
     );
   }
 
+  /// Builds the tutorial instruction widgets from loaded JSON data.
+  /// 
+  /// Creates a list of instruction items with:
+  /// - Regular text for general instructions
+  /// - Highlighted text for important actions or gestures
+  /// - Proper spacing between instruction items
   List<Widget> _buildTutorial() {
     List<Widget> instructionWidgets = [];
     
@@ -300,7 +338,6 @@ class _OnboardingPageState extends State<OnboardingPage>
         }
       }
     } else {
-      // Fallback if JSON not loaded
       instructionWidgets.add(
         Center(
           child: CircularProgressIndicator(

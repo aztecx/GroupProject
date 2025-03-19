@@ -7,6 +7,16 @@ import 'settings.dart';
 import 'onboarding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Application entry point.
+/// 
+/// Initializes the Flutter binding, configures system-wide settings,
+/// and launches the root app widget.
+/// 
+/// This function:
+/// 1. Ensures Flutter is properly initialized
+/// 2. Locks the app to portrait orientation
+/// 3. Configures transparent status bar
+/// 4. Runs the main application widget
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -28,7 +38,17 @@ class MyApp extends StatefulWidget {
   _MyAppState createState() => _MyAppState();
 }
 
+/// State for the root MyApp widget.
+///
+/// Manages:
+/// - First-run detection for showing onboarding
+/// - Theme mode preferences (light/dark)
+/// - Global app configuration
+/// - App-wide theme definitions
+/// - Primary navigation routes
 class _MyAppState extends State<MyApp> {
+
+  // True for first-time app users, false for returning users.
   bool _showOnboarding = true;
   ThemeMode _themeMode = ThemeMode.dark;
 
@@ -39,6 +59,11 @@ class _MyAppState extends State<MyApp> {
     _loadThemePreference();
   }
 
+  /// Determines if this is the first time the app has been launched.
+  /// 
+  /// Checks SharedPreferences for a 'first_time' flag and sets
+  /// _showOnboarding accordingly. After checking, the flag is set
+  /// to false for future launches.
   Future<void> _checkFirstTime() async {
     final prefs = await SharedPreferences.getInstance();
     final firstTime = prefs.getBool('first_time') ?? true;
@@ -71,6 +96,13 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  /// Builds the root MaterialApp with themes and navigation routes.
+  /// 
+  /// Creates the MaterialApp with:
+  /// - Dark and light theme definitions
+  /// - Initial route based on whether onboarding should be shown
+  /// - Route definitions for all main app screens
+  /// - Global app title and banner settings
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -166,7 +198,7 @@ class _MyAppState extends State<MyApp> {
       routes: {
         '/': (context) => MenuPage(),
         '/home': (context) => Homepage(),
-        '/textModel': (context) => TextModelPage(),
+        // '/textModel': (context) => TextModelPage(),
         '/settings': (context) => SettingsPage(
           updateThemeMode: updateThemeMode,
         ),

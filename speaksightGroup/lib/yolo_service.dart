@@ -8,7 +8,13 @@ import 'dart:typed_data';
 import 'dart:math' as math;
 
 
-
+/// YoloService provides object detection functionality for the application.
+///
+/// This service utilizes a YOLOv11n (You Only Look Once) model to detect objects
+/// in camera frames. It handles loading the TensorFlow Lite model, preprocessing
+/// images to match the model's input requirements, running inference, and 
+/// post-processing detection results with non-maximum suppression to remove
+/// duplicate detections.
 class YoloService {
   
   final timers = <String, Stopwatch>{
@@ -32,7 +38,19 @@ class YoloService {
   late int dy;
   late double scale;
 
-
+  /// Resizes and pads the input image to match model requirements.
+  /// 
+  /// The model requires a square input of 320 x 320 pixels.
+  /// This method:
+  /// 1. Scales the image while preserving aspect ratio
+  /// 2. Pads with gray pixels to reach _inputSize in both dimensions
+  /// 3. Sets dx, dy and scale for later coordinate conversion
+  /// 
+  /// Parameters:
+  ///   image: The original image to be processed
+  /// 
+  /// Returns:
+  ///   A padded square image of _inputSize x _inputSize pixels
   img.Image _resizedImage(img.Image image) {
     final originalWidth = image.width;
     final originalHeight = image.height;
@@ -53,22 +71,17 @@ class YoloService {
 
   }
 
-  // ⚠️ rbg normalization
-  // Float32List _prepareInput(img.Image image) {
-  //   final input = Float32List(_inputSize * _inputSize * 3);
-  //   int pixelIndex = 0;
-
-  //   for (int y = 0; y < _inputSize; y++) {
-  //     for (int x = 0; x < _inputSize; x++) {
-  //       final pixel = image.getPixel(x, y);
-  //       input[pixelIndex++] = pixel.r / 255.0;
-  //       input[pixelIndex++] = pixel.g / 255.0;
-  //       input[pixelIndex++] = pixel.b / 255.0;
-  //     }
-  //   }
-  //   return input;
-  // }
-
+  /// Normalizes image pixel values for model input.
+  /// 
+  /// Converts image pixels to a normalized Float32List where values
+  /// are scaled from 0-255 to 0-1 range as required by the model.
+  /// Uses RGB channel order.
+  /// 
+  /// Parameters:
+  ///   image: The image to normalize
+  /// 
+  /// Returns:
+  ///   Float32List with normalized pixel values
   Float32List _prepareInput(img.Image image) {
     final bytes = image.getBytes(order: img.ChannelOrder.rgb);
     final input = Float32List(_inputSize * _inputSize * 3);
@@ -78,7 +91,13 @@ class YoloService {
     return input;
   }
 
-  // Loads the model and labels from assets.
+  /// Loads the YOLO model and class labels from assets.
+  /// 
+  /// Initializes the TensorFlow Lite interpreter with the model file
+  /// and loads object class labels from a text file. Sets up the model
+  /// with optimized settings for mobile inference.
+  /// 
+  /// Throws an exception if model loading fails.
   Future<void> loadModel() async {
 
     try {
@@ -105,6 +124,25 @@ class YoloService {
     }
   }
 
+  /// Performs object detection on an image.
+  /// 
+  /// This method:
+  /// 1. Preprocesses the image (resize, pad, normalize)
+  /// 2. Runs the YOLO model inference
+  /// 3. Processes the model output to extract detections
+  /// 4. Applies non-maximum suppression to filter overlapping boxes
+  /// 5. Converts coordinates from model space to original image space
+  /// 
+  /// Parameters:
+  ///   image: The input image for object detection
+  /// 
+  /// Returns:
+  ///   A list of maps, each containing detection information:
+  ///   - x, y: Center coordinates of the bounding box (normalized)
+  ///   - width, height: Dimensions of the bounding box (normalized)
+  ///   - label: Name of the detected object
+  ///   - confidence: Detection confidence score
+  ///   - denormalizedX, denormalizedY: Center coordinates in original image space
   Future<List<Map<String, dynamic>>> runModel(img.Image image) async {
     List<Map<String, dynamic>> detections = [];
     try {
@@ -121,7 +159,7 @@ class YoloService {
 
       timers['preprocess']?.stop();
 
-      // ⚠️内存溢出问题，很可能是由output这里引发的
+      // ⚠️内存溢出问题，很可能是由output这里导致的, 84x2100个double数据。
       List<List<List<double>>> ?output = List<List<List<double>>>.generate(
         1,
             (_) => List<List<double>>.generate(84, (_) => List<double>.filled(2100, 0.0, growable: false),
@@ -133,7 +171,7 @@ class YoloService {
       // print("📊 Model output shape: [${output.length}, ${output[0].length}, ${output[0][0].length}]");
       timers['interpreter']?.stop();
 
-      // Transpose output from [1,84,8400] to [1,8400,84]
+      // Transpose output from [1,84,2100] to [1,2100,84]
       List<List<double>> transposedOutput = List.generate(2100, (_) => List.filled(84, 0.0));
       for (int i = 0; i < 84; i++) {
         for (int j = 0; j < 2100; j++) {
@@ -202,12 +240,12 @@ class YoloService {
       // print("❌ Error running model: $e \n");
     }
     timers['NMS']?.stop();
-    // print('🕒🕒🕒🕒🕒🕒🕒🕒 '
-    //     'Yolo_service Base: ${timers['base']?.elapsedMilliseconds}ms, '
-    //     'preprocess: ${timers['preprocess']?.elapsedMilliseconds}ms,'
-    //     'interpreter: ${timers['interpreter']?.elapsedMilliseconds}ms,'
-    //     'NMS: ${timers['NMS']?.elapsedMilliseconds}ms'
-    // );
+    print('🕒🕒🕒🕒🕒🕒🕒🕒 '
+        'Yolo_service Base: ${timers['base']?.elapsedMilliseconds}ms, '
+        'preprocess: ${timers['preprocess']?.elapsedMilliseconds}ms,'
+        'interpreter: ${timers['interpreter']?.elapsedMilliseconds}ms,'
+        'NMS: ${timers['NMS']?.elapsedMilliseconds}ms'
+    );
     timers['base']?.reset();
     timers['preprocess']?.reset();
     timers['interpreter']?.reset();
@@ -218,6 +256,18 @@ class YoloService {
 
   }
 
+  /// Applies Non-Maximum Suppression to filter overlapping detections.
+  /// 
+  /// This method:
+  /// 1. Sorts detections by confidence (highest first)
+  /// 2. Calculates IoU (Intersection over Union) between boxes
+  /// 3. Suppresses boxes with high overlap (IoU > threshold) with higher confidence boxes
+  /// 
+  /// Parameters:
+  ///   detections: List of detection results to filter
+  /// 
+  /// Returns:
+  ///   Filtered list of detections with overlapping boxes removed
   List<Map<String, dynamic>> _applyNMS(List<Map<String, dynamic>> detections) {
     // sort detections by confidence
     detections.sort((a, b) => b['confidence'].compareTo(a['confidence']));
