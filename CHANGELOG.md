@@ -9,7 +9,7 @@
 
 ## 18/03/2025
 ### Changed @Jiwei
-- <ReadingTutorial> function in onboarding page is now using tutorial.mp3 instead of TTS
+- `ReadingTutorial` function in onboarding page is now using tutorial.mp3 instead of TTS
 
 ## 17/03/2025
 ### Added @Jiwei
@@ -37,7 +37,7 @@
 - Object Search Mode are fully functional.
 - <ConvertNV21Image> for another kind of android camera.
 - Set a rate limitation to <ConvertImage>.
-### Added @Louise
+### Added @Louise & Assem
 - UI designed
 
 ## 11/03/2025
