@@ -1,7 +1,5 @@
 # SpeakSight
 
-A new Flutter project.
-
 ## Installation Instructions for Mentors
 
 To run this app on your device, please follow these steps:
