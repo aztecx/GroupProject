@@ -1,36 +1,93 @@
-# CE903-Speak Sight
+# SpeakSight
 
-## Abstract
-This project aims to develop, implement and evaluate deep learning methods for detecting and identifying objects from images and videos using publicly
-available image datasets, such as the [Microsoft COCO dataset](https://cocodataset.org/#home), and to develop a mobile app as a blind guide using
-voice. An image may contain several different objects, including signs and texts. Your task is to localise and recognise objects from images of many object
-categories, and to describe what are in the image and other useful information by voice. Detailed description of such task and examples of images can be
-found at https://www.kaggle.com/c/imagenet-object-localization-challenge. You are allowed to use third party tools/libraries for implementing
-conventional computer vision methods and deep learning methods, as long as you acknowledge the use of them appropriately in your code and project
-report.
+A new Flutter project.
 
-## Documents
-- [Software Requirements Specification (SRS) Document](https://docs.google.com/document/d/1CYlddYP85lK51TutrHIS6PdsSuaSx9AJ0IwaIfmCrPQ/edit?tab=t.0)
+## Installation Instructions for Mentors
 
-## Tools
-- [Trello](https://trello.com/b/BWFXbR0M/system-req-specification-doc)
+To run this app on your device, please follow these steps:
 
-- [Flutter tutorial](https://docs.flutter.dev/get-started/install)
-- [Git tutorial](https://www.atlassian.com/git/tutorials)
-- [YOLO tutorial](https://docs.ultralytics.com/)
+### 1. Environment Setup
 
+```bash
+# Install Flutter SDK
+# For macOS
+brew install flutter
 
+# For Windows (using Chocolatey)
+choco install flutter
 
-## References
+# For Linux
+sudo snap install flutter --classic
 
-1. Waseem Rawat and Zenghui Wang, “Deep convolutional neural networks for image classification: A comprehensive review,” Neural Computation, vol. 29, pp. 2352-2449, 2017.
+# Verify installation
+flutter doctor
+```
 
-2. Alexey Bochkovskiy, et al., “YOLOv4: Optimal speed and accuracy of object detection” [https://arxiv.org/pdf/2004.10934.pdf]
+### 2. Clone the Repository <main> branch
 
-3. [(Laptop-based) Blind-Assistance-Object-Detection-and-Navigation](https://github.com/beingaryan/Blind-Assistance-Object-Detection-and-Navigation)
+```bash
+git clone https://github.com/aztecx/GroupProject.git
+cd speaksightGroup
+```
 
-4. [Realtime-ObjectDetection-Direction-for-Blind-Raspberry-Pi](https://github.com/HemanthNallamothu/Realtime-ObjectDetection-Direction-for-Blind-Raspberry-Pi)
+### 3. Get Dependencies
 
-5. [Object-Detection-on-Mobile-Cam-for-Blind](https://github.com/AdroitAnandAI/Object-Detection-on-Mobile-Cam-for-Blind)
+```bash
+flutter pub get
+```
 
-6. [YOLO model reference](https://medium.com/google-developer-experts/yolov10-to-litert-object-detection-on-android-with-google-ai-edge-2d0de5619e71#:~:text=what%20LiteRT%20is.-,YOLOv10,particularly%20efficient%20for%20edge%20deployment.)
+### 4. Run on Your Device
+
+#### For Android
+
+1. Enable Developer Options and USB Debugging on your Android device:
+   - Go to Settings > About Phone > Tap "Build Number" 7 times
+   - Return to Settings > Developer Options > Enable "USB Debugging"
+
+2. Connect your Android device via USB and allow USB debugging when prompted.
+
+3. Verify your device is recognized:
+```bash
+flutter devices
+```
+
+4. Run the app:
+```bash
+flutter run
+```
+
+#### For iOS
+
+1. Install Xcode (macOS only):
+```bash
+xcode-select --install
+```
+
+2. Install CocoaPods:
+```bash
+sudo gem install cocoapods
+```
+
+3. Connect your iOS device via USB.
+
+4. Trust your computer on your iOS device when prompted.
+
+5. Open iOS folder in Xcode:
+```bash
+open ios/Runner.xcworkspace
+```
+
+6. In Xcode:
+   - Select your device from the device dropdown
+   - Sign in with your Apple ID in Xcode > Preferences > Accounts
+   - Update bundle identifier in project settings if needed
+   - Click the Run button or use Command+R
+
+Alternatively, after setup is complete, you can run directly from command line:
+```bash
+flutter run
+```
+
+**Note:** Detailed instructions on how to use the app are provided within the app itself.
+
+## See [Flutter tutorial](https://docs.flutter.dev/get-started/install) for more detail 
