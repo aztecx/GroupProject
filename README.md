@@ -1,6 +1,6 @@
 # SpeakSight
 
-## Installation Instructions for Mentors
+## Installation Instructions
 
 To run this app on your device, please follow these steps:
 
